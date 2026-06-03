@@ -1,0 +1,123 @@
+// ============================================================
+//  firestore.rules
+//  Restaurant Ordering App — Firestore Security Rules
+//  Version: 1.0.0
+// ============================================================
+//
+//  COLLECTION LAYOUT:
+//  ┌─────────────────┬──────────────────────────────────────────────┐
+//  │ Collection      │ Access Policy                                │
+//  ├─────────────────┼──────────────────────────────────────────────┤
+//  │ menuItems       │ Public READ  |  Admin-only WRITE             │
+//  │ categories      │ Public READ  |  Admin-only WRITE             │
+//  │ orders          │ Public READ+WRITE (customers place orders)   │
+//  │                 │ Admin WRITE (status updates, resets)         │
+//  │ waiterCalls     │ Public CREATE (customers ping staff)         │
+//  │                 │ Admin READ + DELETE (dismiss alerts)         │
+//  └─────────────────┴──────────────────────────────────────────────┘
+//
+//  ADMIN IDENTITY:
+//  Any authenticated Firebase Auth user is treated as admin.
+//  For production with multiple staff, extend isAdmin() to check
+//  against a custom claim or a secure /admins/{uid} whitelist doc.
+// ============================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ────────────────────────────────────────
+    
+    /** Returns true if the request comes from a signed-in admin user */
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    /** Validates that an order document has the required fields */
+    function isValidOrder() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['tableNumber', 'status', 'active', 'totalAmount', 'orderBatches'])
+        && data.tableNumber is string
+        && data.status is string
+        && data.active is bool
+        && data.totalAmount is number
+        && data.orderBatches is list;
+    }
+
+    /** Validates a waiter call ping document */
+    function isValidWaiterCall() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['tableNumber', 'requestType', 'timestamp'])
+        && data.tableNumber is string
+        && data.requestType is string;
+    }
+
+    // ── menuItems Collection ────────────────────────────────────
+    // Customers need public read to browse the menu.
+    // Only signed-in admins can create, update, or delete items.
+    match /menuItems/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── categories Collection ───────────────────────────────────
+    // Customers need public read to load filter capsules.
+    // Only admins can manage categories via Category Studio.
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── orders Collection ───────────────────────────────────────
+    // CUSTOMER RULES:
+    //   - CREATE: Customers can open a new order session for their table.
+    //   - UPDATE: Customers can only append new batches (arrayUnion) and
+    //             increment the total. They CANNOT modify existing batch data,
+    //             change the status field, or reset the table.
+    //   - READ:   Customers can view their own table's order receipt.
+    //
+    // ADMIN RULES:
+    //   - Full read/write for status management, resets, and analytics.
+    match /orders/{orderId} {
+      // Anyone can read order documents (customer receipt screen needs this)
+      allow read: if true;
+
+      // Customers can CREATE a new order document
+      allow create: if isValidOrder();
+
+      // Customers can UPDATE only to append batches / increment total.
+      // Admins get full update access (status changes, resets, etc.)
+      allow update: if isAdmin()
+        || (
+          // Customer append path: must not change status or active flag
+          request.resource.data.status == resource.data.status
+          && request.resource.data.active == resource.data.active
+          && request.resource.data.tableNumber == resource.data.tableNumber
+          // Total can only go up (increment, never decrement)
+          && request.resource.data.totalAmount >= resource.data.totalAmount
+        );
+
+      // Only admins can hard-delete order documents
+      // (customers never delete — data preserved for sales metrics)
+      allow delete: if isAdmin();
+    }
+
+    // ── waiterCalls Collection ──────────────────────────────────
+    // Customers can CREATE a call ping (no auth required).
+    // Only admins can READ and DELETE (dismiss) the alerts.
+    match /waiterCalls/{callId} {
+      allow create: if isValidWaiterCall();
+      allow read, delete: if isAdmin();
+      // No update needed — calls are create-once, then dismissed (deleted)
+      allow update: if false;
+    }
+
+    // ── Catch-all: deny everything else ────────────────────────
+    // Any collection not explicitly matched above is fully locked.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}

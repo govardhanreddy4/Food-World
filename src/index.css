@@ -1,0 +1,164 @@
+/*
+ * index.css  —  Tailwind CSS v4
+ * -----------------------------------------------------------
+ * Global styles for the Food World Restaurant Ordering App.
+ *
+ * Custom Utilities:
+ *   .glass-light         — Customer-facing glassmorphic card
+ *   .glass-dark          — Admin-facing glassmorphic card
+ *   .animate-pulse-orange  — Pulsing neon orange glow (kitchen urgency)
+ *   .animate-alert-shake   — Horizontal shake for waiter call cards
+ *   .animate-fadeIn        — Entrance fade-in for modals/panels
+ *   .scrollbar-hide        — Hides scrollbar on category filter row
+ */
+
+/* ── Tailwind v4 core import ── */
+@import "tailwindcss";
+
+/* ── Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* ─── Design Tokens via @theme ─────────────────────────────────────────────── */
+@theme {
+  /* Font */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Custom colors */
+  --color-charcoal-slate: #1A1A1A;
+  --color-admin-bg:       #0B0F19;
+  --color-status-pending:   #ef4444;
+  --color-status-preparing: #f59e0b;
+  --color-status-served:    #10b981;
+  --color-status-urgent:    #f97316;
+
+  /* Animations */
+  --animate-pulse-orange: pulse-orange 1.8s ease-in-out infinite;
+  --animate-alert-shake:  alert-shake 0.5s ease-in-out;
+  --animate-fadeIn:       fadeIn 0.25s ease-out both;
+
+  /* Keyframes */
+  @keyframes pulse-orange {
+    0%, 100% {
+      box-shadow:
+        0 0 6px rgba(249, 115, 22, 0.4),
+        0 0 20px rgba(249, 115, 22, 0.2);
+    }
+    50% {
+      box-shadow:
+        0 0 16px rgba(249, 115, 22, 0.9),
+        0 0 40px rgba(249, 115, 22, 0.5),
+        0 0 60px rgba(249, 115, 22, 0.2);
+    }
+  }
+
+  @keyframes alert-shake {
+    0%, 100% { transform: translateX(0); }
+    15%       { transform: translateX(-5px); }
+    30%       { transform: translateX(5px); }
+    45%       { transform: translateX(-4px); }
+    60%       { transform: translateX(4px); }
+    75%       { transform: translateX(-2px); }
+    90%       { transform: translateX(2px); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* ─── Base Resets ─────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  overscroll-behavior-y: none;
+}
+
+/* Custom scrollbar for admin panels */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.1); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ─── Custom Utility Classes ──────────────────────────────────────────────── */
+
+/*
+ * .glass-light
+ * Light glassmorphic card — customer-facing menu cards.
+ * Spec: bg-white/30 backdrop-blur-md border border-white/20 shadow-lg
+ */
+@utility glass-light {
+  background: rgba(255, 255, 255, 0.30);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.40);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+/*
+ * .glass-dark
+ * Dark glassmorphic card — admin/kitchen UI containers.
+ * Spec: bg-slate-900/45 backdrop-blur-lg border border-white/10
+ */
+@utility glass-dark {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+/*
+ * .animate-pulse-orange
+ * Pulsing neon orange glow — kitchen ticket urgency at 15+ minutes.
+ */
+@utility animate-pulse-orange {
+  animation: pulse-orange 1.8s ease-in-out infinite;
+}
+
+/*
+ * .animate-alert-shake
+ * Quick horizontal shake for new waiter call alert cards.
+ */
+@utility animate-alert-shake {
+  animation: alert-shake 0.5s ease-in-out;
+}
+
+/*
+ * .animate-fadeIn
+ * Smooth opacity + translate entrance for modals, cart panels, login card.
+ */
+@utility animate-fadeIn {
+  animation: fadeIn 0.25s ease-out both;
+}
+
+/*
+ * .scrollbar-hide
+ * Hides scrollbar on horizontal category filter row.
+ */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Line clamp */
+@utility line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
