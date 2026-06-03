@@ -49,7 +49,7 @@ function AdminLayout() {
     if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.WAITER_CALLS),
-      where("resId", "==", currentUser.uid),
+      where("restaurantId", "==", currentUser.uid),
       where("dismissed", "==", false)
     );
     const unsub = onSnapshot(q, (snap) => {

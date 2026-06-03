@@ -83,7 +83,7 @@ function LiveReceipt() {
     const q = query(
       collection(db, COLLECTIONS.ORDERS),
       where("tableNumber", "==", String(tableId)),
-      where("resId", "==", String(resId)),
+      where("restaurantId", "==", String(resId)),
       where("active", "==", true),
       limit(1)
     );

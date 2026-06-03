@@ -55,7 +55,7 @@ function CategoryStudio() {
     if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.CATEGORIES),
-      where("userId", "==", currentUser.uid),
+      where("restaurantId", "==", currentUser.uid),
       orderBy("displayOrder", "asc")
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -77,7 +77,7 @@ function CategoryStudio() {
       await addDoc(collection(db, COLLECTIONS.CATEGORIES), {
         label: newLabel.trim(),
         displayOrder: parseInt(newOrder) || categories.length + 1,
-        userId: currentUser.uid,
+        restaurantId: currentUser.uid,
         createdAt: serverTimestamp(),
       });
       setNewLabel("");

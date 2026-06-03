@@ -86,7 +86,7 @@ function CallWaiterModule({ tableId, resId }) {
     try {
       await addDoc(collection(db, COLLECTIONS.WAITER_CALLS), {
         tableNumber: String(tableId),
-        resId: String(resId),
+        restaurantId: String(resId),
         requestType: selected,
         timestamp: serverTimestamp(),
         dismissed: false,
@@ -434,7 +434,7 @@ function CustomerMenu() {
     if (!resId) return;
     const q = query(
       collection(db, COLLECTIONS.MENU_ITEMS),
-      where("userId", "==", resId),
+      where("restaurantId", "==", resId),
       orderBy("name", "asc")
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -449,7 +449,7 @@ function CustomerMenu() {
     if (!resId) return;
     const q = query(
       collection(db, COLLECTIONS.CATEGORIES),
-      where("userId", "==", resId),
+      where("restaurantId", "==", resId),
       orderBy("displayOrder", "asc")
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -517,7 +517,7 @@ function CustomerMenu() {
         const existingQuery = query(
           collection(db, COLLECTIONS.ORDERS),
           where("tableNumber", "==", String(tableId)),
-          where("resId", "==", String(resId)),
+          where("restaurantId", "==", String(resId)),
           where("active", "==", true),
           limit(1)
         );
@@ -538,7 +538,7 @@ function CustomerMenu() {
           // ── Create new order session ──────────────────────────
           const newOrderRef = await addDoc(collection(db, COLLECTIONS.ORDERS), {
             tableNumber:  String(tableId),
-            resId:        String(resId),
+            restaurantId:  String(resId),
             status:       "Pending",
             active:       true,
             totalAmount:  cartTotal,

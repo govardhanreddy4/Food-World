@@ -576,7 +576,7 @@ function MenuManager() {
     if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.MENU_ITEMS),
-      where("userId", "==", currentUser.uid),
+      where("restaurantId", "==", currentUser.uid),
       orderBy("name", "asc")
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -591,7 +591,7 @@ function MenuManager() {
     if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.CATEGORIES),
-      where("userId", "==", currentUser.uid),
+      where("restaurantId", "==", currentUser.uid),
       orderBy("displayOrder", "asc")
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -614,7 +614,7 @@ function MenuManager() {
     } else {
       await addDoc(collection(db, COLLECTIONS.MENU_ITEMS), {
         ...formData,
-        userId: currentUser.uid,
+        restaurantId: currentUser.uid,
         createdAt: serverTimestamp(),
       });
     }
