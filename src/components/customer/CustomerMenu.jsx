@@ -231,7 +231,9 @@ function MenuItemCard({ item, cartQty, onAdd, onRemove }) {
       {/* Content */}
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="text-[#1A1A1A] font-bold text-sm leading-tight">{item.name}</h3>
+          <h3 className="text-[#1A1A1A] font-bold text-sm leading-tight">
+            {item.name} <span className="ml-1 text-[10px]" title={item.foodType || "Veg"}>{item.foodType === "Non-Veg" ? "🔴" : "🟢"}</span>
+          </h3>
           <span className="text-[#1A1A1A] font-black text-base shrink-0">
             ₹{Number(item.price).toFixed(0)}
           </span>
@@ -413,6 +415,7 @@ function CustomerMenu() {
   const [menuItems, setMenuItems]       = useState([]);
   const [categories, setCategories]     = useState([]);
   const [activeCategory, setActiveCategory] = useState("All");
+  const [dietaryFilter, setDietaryFilter]   = useState("All"); // All, Veg, Non-Veg
   const [cart, setCart]                 = useState([]);
   const [cartOpen, setCartOpen]         = useState(false);
   const [confirming, setConfirming]     = useState(false);
@@ -461,10 +464,16 @@ function CustomerMenu() {
   }, [resId]);
 
   // ── Filtered menu ─────────────────────────────────────────────
-  const filteredItems =
-    activeCategory === "All"
-      ? menuItems
-      : menuItems.filter((i) => i.category === activeCategory);
+  const filteredItems = menuItems.filter((i) => {
+    // 1. Category Filter
+    if (activeCategory !== "All" && i.category !== activeCategory) return false;
+    // 2. Dietary Filter
+    if (dietaryFilter !== "All") {
+      const type = i.foodType || "Veg"; // fallback to Veg if unset
+      if (type !== dietaryFilter) return false;
+    }
+    return true;
+  });
 
   // ── Cart management ───────────────────────────────────────────
   function addToCart(item) {
@@ -696,6 +705,40 @@ function CustomerMenu() {
               {cat}
             </button>
           ))}
+        </div>
+
+        {/* ── Dietary Filter Buttons ─────────────────────────── */}
+        <div className="flex items-center gap-2 mt-3 pb-1">
+          <button
+            onClick={() => setDietaryFilter("Veg")}
+            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+              dietaryFilter === "Veg"
+                ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                : "bg-white/40 text-emerald-700 border border-emerald-200/50"
+            }`}
+          >
+            Veg Only 🟢
+          </button>
+          <button
+            onClick={() => setDietaryFilter("Non-Veg")}
+            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+              dietaryFilter === "Non-Veg"
+                ? "bg-red-500 text-white shadow-md shadow-red-500/20"
+                : "bg-white/40 text-red-700 border border-red-200/50"
+            }`}
+          >
+            Non-Veg Only 🔴
+          </button>
+          <button
+            onClick={() => setDietaryFilter("All")}
+            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+              dietaryFilter === "All"
+                ? "bg-slate-700 text-white shadow-md shadow-slate-500/20"
+                : "bg-white/40 text-slate-700 border border-slate-200/50"
+            }`}
+          >
+            Show All
+          </button>
         </div>
       </header>
 

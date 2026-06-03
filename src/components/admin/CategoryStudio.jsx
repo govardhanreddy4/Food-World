@@ -158,7 +158,7 @@ function CategoryStudio() {
       {/* ── Add Category Form ─────────────────────────────────── */}
       <form
         onSubmit={handleAdd}
-        className="flex gap-3 mb-6 p-4 rounded-2xl"
+        className="flex flex-col sm:flex-row gap-3 mb-6 p-4 rounded-2xl"
         style={glassCard}
       >
         <input

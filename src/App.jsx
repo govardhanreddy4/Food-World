@@ -32,6 +32,7 @@ import AdminDashboard  from "./components/admin/AdminDashboard";
 import MenuManager     from "./components/admin/MenuManager";
 import CategoryStudio  from "./components/admin/CategoryStudio";
 import QRStudio        from "./components/admin/QRStudio";
+import AdminSales      from "./components/admin/AdminSales";
 
 // ── Customer Components ────────────────────────────────────────────────────────
 import CustomerMenu from "./components/customer/CustomerMenu";
@@ -56,6 +57,7 @@ function App() {
               <Route path="/admin/menu"        element={<MenuManager />} />
               <Route path="/admin/categories"  element={<CategoryStudio />} />
               <Route path="/admin/qr"          element={<QRStudio />} />
+              <Route path="/admin/sales"       element={<AdminSales />} />
             </Route>
           </Route>
 

@@ -20,6 +20,7 @@ import {
   LogOut,
   Bell,
   ChefHat,
+  LineChart,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { db, COLLECTIONS } from "../firebase/firebaseConfig";
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { to: "/admin/menu",     label: "Menu Manager", icon: UtensilsCrossed },
   { to: "/admin/categories", label: "Category Studio", icon: Tag },
   { to: "/admin/qr",       label: "QR Studio",    icon: QrCode },
+  { to: "/admin/sales",    label: "Sales & Analytics", icon: LineChart },
 ];
 
 function AdminLayout() {
@@ -215,6 +217,31 @@ function AdminLayout() {
             onClick={(e) => e.stopPropagation()}
           >
             <NavLinks />
+            
+            {/* Mobile User Info + Logout */}
+            <div
+              className="mt-2 p-3 rounded-xl"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="overflow-hidden pr-2">
+                  <p className="text-white/70 text-sm font-medium truncate mb-0.5">
+                    {user?.displayName || "Admin"}
+                  </p>
+                  <p className="text-white/30 text-xs truncate">{user?.email}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors shrink-0"
+                >
+                  <LogOut size={16} />
+                  <span className="text-xs font-semibold">Sign out</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

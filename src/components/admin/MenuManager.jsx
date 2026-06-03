@@ -58,6 +58,7 @@ const emptyForm = () => ({
   category: "",
   imageUrl: "",
   available: true,
+  foodType: "Veg",
 });
 
 // ─── Item Form Modal ────────────────────────────────────────────────────────────
@@ -82,6 +83,7 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
         category:    editItem.category    || "",
         imageUrl:    editItem.imageUrl    || "",
         available:   editItem.available   ?? true,
+        foodType:    editItem.foodType    || "Veg",
       });
       // Show existing image as preview when editing
       setLocalPreview("");
@@ -204,6 +206,7 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
         imageUrl: form.imageUrl, // The encoded local image text string
         available: form.available,
         isAvailable: form.available,
+        foodType: form.foodType || "Veg",
       };
       await onSave(payload);
       onClose();
@@ -334,8 +337,8 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
             />
           </div>
 
-          {/* Price + Category */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Price + Category + Food Type */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-white/60 text-xs mb-1.5 block">Price (₹) *</label>
               <input
@@ -365,6 +368,19 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
                     {cat.label}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-white/60 text-xs mb-1.5 block">Food Type *</label>
+              <select
+                value={form.foodType}
+                onChange={(e) => handleChange("foodType", e.target.value)}
+                required
+                className="w-full px-4 py-3 rounded-xl text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
+              >
+                <option value="Veg" className="bg-slate-900">Veg</option>
+                <option value="Non-Veg" className="bg-slate-900">Non-Veg</option>
               </select>
             </div>
           </div>
@@ -737,7 +753,9 @@ function MenuManager() {
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <div>
-                    <h3 className="text-white font-semibold text-sm leading-tight">{item.name}</h3>
+                    <h3 className="text-white font-semibold text-sm leading-tight">
+                      {item.name} <span className="ml-1 text-[10px]" title={item.foodType || "Veg"}>{item.foodType === "Non-Veg" ? "🔴" : "🟢"}</span>
+                    </h3>
                     <span className="text-indigo-400/80 text-xs">{item.category}</span>
                   </div>
                   <span className="text-white font-bold text-sm shrink-0">

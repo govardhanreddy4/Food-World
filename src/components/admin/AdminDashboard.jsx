@@ -407,9 +407,9 @@ function AdminDashboard() {
 
 
   return (
-    <div className="flex min-h-screen" style={{ background: "#0B0F19" }}>
+    <div className="flex flex-col xl:flex-row min-h-screen w-full overflow-hidden" style={{ background: "#0B0F19" }}>
       {/* ── Main KDS Content ─────────────────────────────────────── */}
-      <div className="flex-1 p-6 min-w-0">
+      <div className="flex-1 p-4 md:p-6 min-w-0 w-full overflow-hidden">
         {/* Page header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -477,8 +477,8 @@ function AdminDashboard() {
             <p className="text-sm text-slate-400 mt-2 max-w-sm">New customer orders from table QR codes will appear here instantly.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-white/10" style={{ background: "rgba(15,23,42,0.4)", backdropFilter: "blur(16px)" }}>
-            <table className="w-full text-left border-collapse">
+          <div className="w-full overflow-x-auto rounded-2xl border border-white/10 scrollbar-hide" style={{ background: "rgba(15,23,42,0.4)", backdropFilter: "blur(16px)" }}>
+            <table className="w-full min-w-[800px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/10 text-white/40 text-xs uppercase tracking-wider bg-white/5">
                   <th className="py-3.5 px-4 font-semibold">Table No.</th>
@@ -571,10 +571,10 @@ function AdminDashboard() {
 
       {/* ── Waiter Calls Sidebar ─────────────────────────────────── */}
       <aside
-        className="hidden xl:flex flex-col w-72 min-h-screen p-4 shrink-0"
-        style={{ background: "rgba(255,255,255,0.02)", borderLeft: "1px solid rgba(255,255,255,0.06)" }}
+        className="flex xl:flex-col w-full xl:w-72 min-h-[300px] xl:min-h-screen p-4 shrink-0 overflow-x-auto xl:overflow-y-auto"
+        style={{ background: "rgba(255,255,255,0.02)", borderLeft: "1px solid rgba(255,255,255,0.06)", borderTop: "1px solid rgba(255,255,255,0.06)" }}
       >
-        <div className="flex items-center gap-2 mb-4 pt-2">
+        <div className="flex items-center gap-2 mb-4 xl:pt-2 w-full xl:w-auto shrink-0">
           <Bell size={18} className="text-orange-400" />
           <h2 className="text-white font-semibold text-sm">Staff Alerts</h2>
           {waiterCalls.length > 0 && (
@@ -585,7 +585,7 @@ function AdminDashboard() {
         </div>
 
         {waiterCalls.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-4 shrink-0 w-full xl:w-auto">
             <Bell size={32} className="text-white/10 mb-2" />
             <p className="text-white/20 text-sm">No active calls</p>
             <p className="text-white/12 text-xs mt-1">
@@ -593,9 +593,11 @@ function AdminDashboard() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2 overflow-y-auto">
+          <div className="flex xl:flex-col gap-2 overflow-auto pb-4 xl:pb-0 w-full xl:w-auto">
             {waiterCalls.map((call) => (
-              <WaiterCallCard key={call.id} call={call} onDismiss={dismissWaiterCall} />
+              <div key={call.id} className="min-w-[260px] xl:min-w-0 shrink-0">
+                <WaiterCallCard call={call} onDismiss={dismissWaiterCall} />
+              </div>
             ))}
           </div>
         )}
