@@ -39,22 +39,24 @@ const NAV_ITEMS = [
 ];
 
 function AdminLayout() {
-  const { user, logout } = useAuth();
+  const { user, currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const [waiterCallCount, setWaiterCallCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // ── Live waiter call badge count ────────────────────────────
   useEffect(() => {
+    if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.WAITER_CALLS),
+      where("resId", "==", currentUser.uid),
       where("dismissed", "==", false)
     );
     const unsub = onSnapshot(q, (snap) => {
       setWaiterCallCount(snap.size);
     });
     return () => unsub();
-  }, []);
+  }, [currentUser, currentUser?.uid]);
 
   async function handleLogout() {
     await logout();

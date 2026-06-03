@@ -573,26 +573,10 @@ function CustomerMenu() {
   // ── No resId param guard ──────────────────────────────────────
   if (!resId) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center p-6"
-        style={{
-          background:
-            "radial-gradient(ellipse at 0% 0%, #ffd6e7 0%, #c3f0ca 25%, #c9e4ff 50%, #ffe8b5 75%, #f3d6ff 100%)",
-        }}
-      >
-        <div
-          className="text-center p-8 rounded-3xl"
-          style={{
-            background: "rgba(255,255,255,0.40)",
-            backdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.50)",
-          }}
-        >
-          <AlertCircle size={40} className="text-red-400 mx-auto mb-3" />
-          <h2 className="text-[#1A1A1A] text-xl font-bold mb-2">Invalid Restaurant Code</h2>
-          <p className="text-gray-600 text-sm">
-            Please rescan the QR code on your table.
-          </p>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-900">
+        <div className="text-center p-8">
+          <h1 className="text-2xl font-bold text-red-500 mb-4">Invalid QR Code</h1>
+          <p>Please scan the official QR code located on your table to view the menu.</p>
         </div>
       </div>
     );

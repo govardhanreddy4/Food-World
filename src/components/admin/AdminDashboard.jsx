@@ -351,7 +351,7 @@ function AdminDashboard() {
       setLoading(false);
     });
     return () => unsub();
-  }, [currentUser]);
+  }, [currentUser, currentUser?.uid]);
 
   // ── Live waiter calls listener ────────────────────────────────
   // NOTE: Intentionally omits orderBy("timestamp") — combining where() +
@@ -374,7 +374,7 @@ function AdminDashboard() {
       setWaiterCalls(calls);
     });
     return () => unsub();
-  }, [currentUser]);
+  }, [currentUser, currentUser?.uid]);
 
   // ── Dismiss waiter call ───────────────────────────────────────
   async function dismissWaiterCall(callId) {

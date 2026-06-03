@@ -65,7 +65,7 @@ function CategoryStudio() {
       setLoading(false);
     });
     return () => unsub();
-  }, [currentUser]);
+  }, [currentUser, currentUser?.uid]);
 
   // ── Add new category ─────────────────────────────────────────
   async function handleAdd(e) {

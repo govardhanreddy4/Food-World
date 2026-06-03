@@ -584,7 +584,7 @@ function MenuManager() {
       setLoading(false);
     });
     return () => unsub();
-  }, [currentUser]);
+  }, [currentUser, currentUser?.uid]);
 
   // ── Live categories listener ──────────────────────────────────
   useEffect(() => {
@@ -598,7 +598,7 @@ function MenuManager() {
       setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
-  }, [currentUser]);
+  }, [currentUser, currentUser?.uid]);
 
   // ── Filtered items ────────────────────────────────────────────
   const filteredItems =
