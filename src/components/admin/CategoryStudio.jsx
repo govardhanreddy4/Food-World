@@ -26,7 +26,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
-import { Plus, Pencil, Trash2, Check, X, Tag } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Tag, GripVertical } from "lucide-react";
 
 // ─── Shared dark-glass card style ───────────────────────────────────────────
 const glassCard = {
