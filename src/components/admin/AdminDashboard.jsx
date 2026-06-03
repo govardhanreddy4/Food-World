@@ -104,14 +104,6 @@ function playNewOrderBeep() {
   }
 }
 
-// ─── Waiter call icon map ─────────────────────────────────────────────────────
-const WAITER_ICONS = {
-  "Request Water":    "💧",
-  "Need Clean Plate": "🍽️",
-  "Call Staff":       "🙋",
-  "Bring Bill":       "🧾",
-};
-
 // ─── Kitchen Timer Sub-Component ──────────────────────────────────────────────
 // ─── Kitchen Timer Sub-Component ──────────────────────────────────────────────
 function OrderTimer({ timestamp, status }) {
@@ -136,49 +128,10 @@ function OrderTimer({ timestamp, status }) {
   );
 }
 
-// ─── Waiter Call Card ─────────────────────────────────────────────────────────
-function WaiterCallCard({ call, onDismiss }) {
-  return (
-    <div
-      className="flex items-center gap-3 p-3 rounded-xl animate-alert-shake"
-      style={{
-        background: "rgba(249,115,22,0.12)",
-        border: "1px solid rgba(249,115,22,0.3)",
-      }}
-    >
-      <span className="text-xl shrink-0">
-        {WAITER_ICONS[call.requestType] || "🔔"}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-orange-300 font-semibold text-sm leading-none">
-          Table {call.tableNumber}
-        </p>
-        <p className="text-orange-200/70 text-xs mt-0.5">{call.requestType}</p>
-        {call.timestamp && (
-          <p className="text-orange-200/30 text-xs mt-0.5">
-            {new Date(call.timestamp?.toDate?.() || call.timestamp).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
-        )}
-      </div>
-      <button
-        onClick={() => onDismiss(call.id)}
-        className="shrink-0 text-orange-300/50 hover:text-orange-300 transition-colors p-1"
-        aria-label="Dismiss waiter call"
-      >
-        <X size={16} />
-      </button>
-    </div>
-  );
-}
-
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 function AdminDashboard() {
   const { currentUser } = useAuth();
   const [orders, setOrders]           = useState([]);
-  const [waiterCalls, setWaiterCalls] = useState([]);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [loading, setLoading]         = useState(true);
   const prevOrderIds                  = useRef(new Set());
@@ -236,34 +189,7 @@ function AdminDashboard() {
     return () => unsub();
   }, [currentUser, currentUser?.uid]);
 
-  // ── Live waiter calls listener ────────────────────────────────
-  useEffect(() => {
-    if (!currentUser || !currentUser.uid) return;
-    const q = query(
-      collection(db, COLLECTIONS.WAITER_CALLS),
-      where("restaurantId", "==", currentUser.uid),
-      where("dismissed", "==", false)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const calls = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      calls.sort((a, b) => {
-        const ta = a.timestamp?.toMillis?.() ?? 0;
-        const tb = b.timestamp?.toMillis?.() ?? 0;
-        return tb - ta;
-      });
-      setWaiterCalls(calls);
-    }, (error) => console.error("Waiter calls listener error:", error));
-    return () => unsub();
-  }, [currentUser, currentUser?.uid]);
 
-  // ── Dismiss waiter call ───────────────────────────────────────
-  async function dismissWaiterCall(callId) {
-    try {
-      await updateDoc(doc(db, COLLECTIONS.WAITER_CALLS, callId), { dismissed: true });
-    } catch {
-      await deleteDoc(doc(db, COLLECTIONS.WAITER_CALLS, callId));
-    }
-  }
 
   // ── Update Batch Status (Race-Condition-Proof Transaction) ───
   async function updateBatchStatus(orderId, batchId, newStatus) {
@@ -569,39 +495,7 @@ function AdminDashboard() {
         )}
       </div>
 
-      {/* ── Waiter Calls Sidebar ─────────────────────────────────── */}
-      <aside
-        className="flex xl:flex-col w-full xl:w-72 min-h-[300px] xl:min-h-screen p-4 shrink-0 overflow-x-auto xl:overflow-y-auto"
-        style={{ background: "rgba(255,255,255,0.02)", borderLeft: "1px solid rgba(255,255,255,0.06)", borderTop: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <div className="flex items-center gap-2 mb-4 xl:pt-2 w-full xl:w-auto shrink-0">
-          <Bell size={18} className="text-orange-400" />
-          <h2 className="text-white font-semibold text-sm">Staff Alerts</h2>
-          {waiterCalls.length > 0 && (
-            <span className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-orange-500 text-white text-xs font-bold animate-pulse">
-              {waiterCalls.length}
-            </span>
-          )}
-        </div>
 
-        {waiterCalls.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center px-4 shrink-0 w-full xl:w-auto">
-            <Bell size={32} className="text-white/10 mb-2" />
-            <p className="text-white/20 text-sm">No active calls</p>
-            <p className="text-white/12 text-xs mt-1">
-              Waiter requests from customers appear here in real time.
-            </p>
-          </div>
-        ) : (
-          <div className="flex xl:flex-col gap-2 overflow-auto pb-4 xl:pb-0 w-full xl:w-auto">
-            {waiterCalls.map((call) => (
-              <div key={call.id} className="min-w-[260px] xl:min-w-0 shrink-0">
-                <WaiterCallCard call={call} onDismiss={dismissWaiterCall} />
-              </div>
-            ))}
-          </div>
-        )}
-      </aside>
     </div>
   );
 }
