@@ -25,6 +25,7 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  runTransaction,
 } from "firebase/firestore";
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { useElapsedTimer } from "../../hooks/useElapsedTimer";
@@ -187,8 +188,7 @@ function AdminDashboard() {
     if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.ORDERS),
-      where("restaurantId", "==", currentUser.uid),
-      orderBy("createdAt", "desc")
+      where("restaurantId", "==", currentUser.uid)
     );
     const unsub = onSnapshot(q, (snap) => {
       const fetchedOrders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -232,7 +232,7 @@ function AdminDashboard() {
 
       setOrders(sortedOrders);
       setLoading(false);
-    });
+    }, (error) => console.error("Orders listener error:", error));
     return () => unsub();
   }, [currentUser, currentUser?.uid]);
 
@@ -252,7 +252,7 @@ function AdminDashboard() {
         return tb - ta;
       });
       setWaiterCalls(calls);
-    });
+    }, (error) => console.error("Waiter calls listener error:", error));
     return () => unsub();
   }, [currentUser, currentUser?.uid]);
 
@@ -265,50 +265,89 @@ function AdminDashboard() {
     }
   }
 
-  // ── Update Order Status (Race-Condition-Proof + Optimistic) ───
-  async function updateOrderStatus(orderId, newStatus, additionalFields = {}) {
+  // ── Update Batch Status (Race-Condition-Proof Transaction) ───
+  async function updateBatchStatus(orderId, batchId, newStatus) {
     // Optimistic local state update
+    setOrders((prev) =>
+      prev.map((order) => {
+        if (order.id !== orderId) return order;
+        const newBatches = [...(order.orderBatches || [])];
+        const bIdx = newBatches.findIndex((b) => b.id === batchId);
+        if (bIdx !== -1) {
+          newBatches[bIdx] = { ...newBatches[bIdx], status: newStatus };
+        }
+        return { ...order, orderBatches: newBatches };
+      })
+    );
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+        const orderSnap = await transaction.get(orderRef);
+        if (!orderSnap.exists()) throw new Error("Order does not exist!");
+        
+        const data = orderSnap.data();
+        const batches = data.orderBatches || [];
+        const bIdx = batches.findIndex((b) => b.id === batchId);
+        
+        if (bIdx === -1) {
+          console.warn("Batch not found in Firestore!");
+          return; // Might have been a legacy batch without ID, or concurrent delete
+        }
+        
+        batches[bIdx].status = newStatus;
+        
+        transaction.update(orderRef, {
+          orderBatches: batches,
+          updatedAt: serverTimestamp(),
+        });
+      });
+    } catch (err) {
+      console.error("Failed to update batch status:", err);
+      alert("Failed to update batch status. Please try again.");
+    }
+  }
+
+  // ── Archive Table ───────────────────────────────────────────────
+  async function archiveOrder(orderId) {
     setOrders((prev) =>
       prev.map((order) =>
         order.id === orderId
-          ? { ...order, status: newStatus, ...additionalFields }
+          ? { ...order, active: false, status: "Completed/Paid" }
           : order
       )
     );
 
     try {
       await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
-        status: newStatus,
-        ...additionalFields,
+        active: false,
+        status: "Completed/Paid",
         updatedAt: serverTimestamp(),
       });
     } catch (err) {
-      console.error("Failed to update status:", err);
-      alert("Failed to update order status. Please try again.");
+      console.error("Failed to archive table:", err);
+      alert("Failed to archive table. Please try again.");
     }
   }
 
   // ── Filter orders by tab ──────────────────────────────────────
   const filteredOrders = orders.filter((o) => {
-    const norm = (o.status || "").toLowerCase();
-    if (statusFilter === "Active")
-      return o.active === true || ["pending", "preparing", "ready", "served"].includes(norm);
-    if (statusFilter === "Completed")
-      return norm === "completed/paid";
+    if (statusFilter === "Active") return o.active === true;
+    if (statusFilter === "Completed") return o.active === false;
     return true;
   });
 
   // ── Summary counts ────────────────────────────────────────────
   const stats = {
-    pending:      orders.filter((o) => (o.status || "").toLowerCase() === "pending").length,
-    preparing:    orders.filter((o) => (o.status || "").toLowerCase() === "preparing").length,
-    served:       orders.filter((o) => (o.status || "").toLowerCase() === "served").length,
+    pending:      orders.reduce((acc, o) => acc + (o.orderBatches?.filter(b => (b.status || "pending").toLowerCase() === "pending").length || 0), 0),
+    preparing:    orders.reduce((acc, o) => acc + (o.orderBatches?.filter(b => (b.status || "pending").toLowerCase() === "preparing").length || 0), 0),
+    served:       orders.reduce((acc, o) => acc + (o.orderBatches?.filter(b => (b.status || "pending").toLowerCase() === "served").length || 0), 0),
     activeTables: orders.filter((o) => o.active).length,
   };
 
   // ── Helper: get status pill styling ───────────────────────────
-  const getStatusBadge = (status) => {
-    const norm = (status || "").toLowerCase();
+  const getBatchStatusBadge = (status) => {
+    const norm = (status || "pending").toLowerCase();
     const styles = {
       pending: "bg-red-500/10 text-red-400 border border-red-500/20",
       preparing: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
@@ -322,22 +361,22 @@ function AdminDashboard() {
       served: "Served",
     };
     const cls = styles[norm] || "bg-slate-500/10 text-slate-400 border border-slate-500/20";
-    const lbl = names[norm] || status;
+    const lbl = names[norm] || status || "Pending";
     return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
+      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${cls}`}>
         {lbl}
       </span>
     );
   };
 
   // ── Helper: render KDS actions ────────────────────────────────
-  const renderActions = (order) => {
-    const norm = (order.status || "").toLowerCase();
+  const renderBatchActions = (orderId, batch) => {
+    const norm = (batch.status || "pending").toLowerCase();
     if (norm === "pending") {
       return (
         <button
-          onClick={() => updateOrderStatus(order.id, "preparing")}
-          className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-md hover:opacity-90 transition-all shadow-md shadow-orange-500/25"
+          onClick={() => updateBatchStatus(orderId, batch.id, "Preparing")}
+          className="px-2 py-1 text-[10px] font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded hover:opacity-90 transition-all shadow-sm"
         >
           Start Cooking
         </button>
@@ -346,8 +385,8 @@ function AdminDashboard() {
     if (norm === "preparing") {
       return (
         <button
-          onClick={() => updateOrderStatus(order.id, "ready")}
-          className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-md hover:opacity-90 transition-all shadow-md shadow-blue-500/25"
+          onClick={() => updateBatchStatus(orderId, batch.id, "Ready")}
+          className="px-2 py-1 text-[10px] font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded hover:opacity-90 transition-all shadow-sm"
         >
           Mark Prepared
         </button>
@@ -356,25 +395,16 @@ function AdminDashboard() {
     if (norm === "ready") {
       return (
         <button
-          onClick={() => updateOrderStatus(order.id, "served")}
-          className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-md hover:opacity-90 transition-all shadow-md shadow-green-500/25"
+          onClick={() => updateBatchStatus(orderId, batch.id, "Served")}
+          className="px-2 py-1 text-[10px] font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded hover:opacity-90 transition-all shadow-sm"
         >
           Serve to Table
         </button>
       );
     }
-    if (norm === "served") {
-      return (
-        <button
-          onClick={() => updateOrderStatus(order.id, "Completed/Paid", { active: false })}
-          className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-slate-600 to-slate-700 rounded-md hover:opacity-90 transition-all border border-slate-500/30"
-        >
-          Archive/Reset
-        </button>
-      );
-    }
     return null;
   };
+
 
   return (
     <div className="flex min-h-screen" style={{ background: "#0B0F19" }}>
@@ -441,13 +471,10 @@ function AdminDashboard() {
             <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div
-            className="rounded-2xl py-20 text-center"
-            style={{ background: "rgba(15,23,42,0.4)", border: "1px solid rgba(255,255,255,0.06)" }}
-          >
-            <ChefHat size={40} className="text-white/10 mx-auto mb-3" />
-            <p className="text-white/30">No orders in this view.</p>
-            <p className="text-white/15 text-sm mt-1">Waiting for customer orders…</p>
+          <div className="flex flex-col items-center justify-center p-12 rounded-2xl text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(12px)" }}>
+            <span className="text-5xl mb-4">🍳</span>
+            <h3 className="text-xl font-semibold text-white">No active orders right now</h3>
+            <p className="text-sm text-slate-400 mt-2 max-w-sm">New customer orders from table QR codes will appear here instantly.</p>
           </div>
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-white/10" style={{ background: "rgba(15,23,42,0.4)", backdropFilter: "blur(16px)" }}>
@@ -464,6 +491,8 @@ function AdminDashboard() {
               <tbody className="divide-y divide-white/5 text-white/80">
                 {filteredOrders.map((order) => {
                   const latestTimestamp = order.orderBatches?.[order.orderBatches.length - 1]?.timestamp;
+                  const allServed = order.orderBatches?.every(b => (b.status || "").toLowerCase() === "served");
+                  
                   return (
                     <tr key={order.id} className="hover:bg-white/5 transition-colors">
                       {/* Table No. */}
@@ -475,19 +504,22 @@ function AdminDashboard() {
                       </td>
                       {/* Order Details */}
                       <td className="py-4 px-4 align-top">
-                        <div className="space-y-2 max-w-lg">
+                        <div className="space-y-3 max-w-lg">
                           {order.orderBatches?.map((batch, bIdx) => (
-                            <div key={bIdx} className="text-xs bg-white/5 rounded-xl p-2.5 border border-white/5">
-                              <div className="flex justify-between text-[10px] text-white/35 mb-1.5 font-mono">
-                                <span>Batch {bIdx + 1}</span>
-                                {batch.timestamp && (
-                                  <span>
-                                    {new Date(batch.timestamp?.toDate?.() || batch.timestamp).toLocaleTimeString([], {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}
-                                  </span>
-                                )}
+                            <div key={bIdx} className="text-xs bg-white/5 rounded-xl p-3 border border-white/5 shadow-sm">
+                              <div className="flex justify-between items-center mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white/50 font-mono text-[10px] uppercase tracking-wider">Batch {bIdx + 1}</span>
+                                  {getBatchStatusBadge(batch.status)}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {renderBatchActions(order.id, batch)}
+                                  {batch.timestamp && (
+                                    <span className="text-[10px] text-white/30 font-mono">
+                                      {new Date(batch.timestamp?.toDate?.() || batch.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 {batch.items?.map((item, i) => (
@@ -498,7 +530,7 @@ function AdminDashboard() {
                                 ))}
                               </div>
                               {batch.notes && (
-                                <div className="text-amber-300/80 italic text-xs mt-2 border-t border-white/5 pt-1.5 flex items-start gap-1">
+                                <div className="text-amber-300/80 italic text-xs mt-2 border-t border-white/5 pt-2 flex items-start gap-1">
                                   <span>📝</span>
                                   <span>{batch.notes}</span>
                                 </div>
@@ -513,13 +545,20 @@ function AdminDashboard() {
                       </td>
                       {/* Status */}
                       <td className="py-4 px-4 align-top">
-                        {getStatusBadge(order.status)}
+                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${order.active ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" : "bg-slate-500/10 text-slate-400 border border-slate-500/20"}`}>
+                           {order.active ? "Active" : "Completed"}
+                         </span>
                       </td>
                       {/* Actions */}
                       <td className="py-4 px-4 align-top">
-                        <div className="flex items-center gap-2">
-                          {renderActions(order)}
-                        </div>
+                        {order.active && allServed && (
+                          <button
+                            onClick={() => archiveOrder(order.id)}
+                            className="px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-slate-600 to-slate-700 rounded-md hover:opacity-90 transition-all shadow-md"
+                          >
+                            Clear Table
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

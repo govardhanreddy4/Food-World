@@ -48,6 +48,7 @@ function StatusBadge({ status }) {
     preparing:        { bg: "rgba(245,158,11,0.12)",  color: "#f59e0b", label: "Being Prepared 🔥" },
     ready:            { bg: "rgba(59,130,246,0.12)",  color: "#3b82f6", label: "Ready to Serve 🍽️" },
     served:           { bg: "rgba(16,185,129,0.12)",  color: "#10b981", label: "Served ✓" },
+    active:           { bg: "rgba(99,102,241,0.12)",  color: "#6366f1", label: "Session Active" },
     "completed/paid": { bg: "rgba(107,114,128,0.12)", color: "#6b7280", label: "Completed & Paid" },
   };
   const s = styles[norm] || styles["pending"];
@@ -201,7 +202,7 @@ function LiveReceipt() {
             <Receipt size={20} className="text-indigo-600" />
             <h1 className="text-[#1A1A1A] text-lg font-black">Live Receipt</h1>
           </div>
-          <StatusBadge status={order?.status} />
+          <StatusBadge status={order?.active ? "Active" : "Completed/Paid"} />
         </div>
 
         {/* ── Kitchen Guardrail Notice ─────────────────────────── */}
@@ -239,9 +240,10 @@ function LiveReceipt() {
               >
                 <div className="flex items-center gap-1.5">
                   <ChefHat size={14} className="text-indigo-500" />
-                  <span className="text-[#1A1A1A] font-bold text-xs">
+                  <span className="text-[#1A1A1A] font-bold text-xs mr-2">
                     Order {idx + 1}
                   </span>
+                  <StatusBadge status={batch.status || "Pending"} />
                 </div>
                 <div className="flex items-center gap-1 text-gray-400 text-xs">
                   <Clock size={11} />

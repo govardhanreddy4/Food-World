@@ -55,15 +55,14 @@ function CategoryStudio() {
     if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.CATEGORIES),
-      where("restaurantId", "==", currentUser.uid),
-      orderBy("displayOrder", "asc")
+      where("restaurantId", "==", currentUser.uid)
     );
     const unsub = onSnapshot(q, (snap) => {
-      setCategories(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      );
+      const fetchedCats = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      fetchedCats.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      setCategories(fetchedCats);
       setLoading(false);
-    });
+    }, (error) => console.error("Categories listener error:", error));
     return () => unsub();
   }, [currentUser, currentUser?.uid]);
 
@@ -194,10 +193,10 @@ function CategoryStudio() {
       {loading ? (
         <p className="text-white/40 text-center py-12">Loading categories…</p>
       ) : categories.length === 0 ? (
-        <div className="text-center py-12 rounded-2xl" style={glassCard}>
-          <Tag size={32} className="text-white/20 mx-auto mb-3" />
-          <p className="text-white/40">No categories yet.</p>
-          <p className="text-white/25 text-sm">Add your first category above.</p>
+        <div className="flex flex-col items-center justify-center p-12 rounded-2xl text-center" style={glassCard}>
+          <span className="text-5xl mb-4">🏷️</span>
+          <h3 className="text-xl font-semibold text-white">No custom categories found</h3>
+          <p className="text-sm text-slate-400 mt-2 max-w-sm">Create one above to structure your menu boards.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">

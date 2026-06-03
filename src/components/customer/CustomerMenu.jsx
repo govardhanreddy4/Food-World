@@ -434,13 +434,14 @@ function CustomerMenu() {
     if (!resId) return;
     const q = query(
       collection(db, COLLECTIONS.MENU_ITEMS),
-      where("restaurantId", "==", resId),
-      orderBy("name", "asc")
+      where("restaurantId", "==", resId)
     );
     const unsub = onSnapshot(q, (snap) => {
-      setMenuItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const fetchedItems = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      fetchedItems.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      setMenuItems(fetchedItems);
       setLoadingMenu(false);
-    });
+    }, (error) => console.error("CustomerMenu items listener error:", error));
     return () => unsub();
   }, [resId]);
 
@@ -449,12 +450,13 @@ function CustomerMenu() {
     if (!resId) return;
     const q = query(
       collection(db, COLLECTIONS.CATEGORIES),
-      where("restaurantId", "==", resId),
-      orderBy("displayOrder", "asc")
+      where("restaurantId", "==", resId)
     );
     const unsub = onSnapshot(q, (snap) => {
-      setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
+      const fetchedCats = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      fetchedCats.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      setCategories(fetchedCats);
+    }, (error) => console.error("CustomerMenu categories error:", error));
     return () => unsub();
   }, [resId]);
 
@@ -499,8 +501,9 @@ function CustomerMenu() {
       setError("");
 
       try {
-        // Build the order batch payload
         const batchPayload = {
+          id:        Date.now().toString(),
+          status:    "Pending",
           items: cart.map((i) => ({
             id:       i.id,
             name:     i.name,

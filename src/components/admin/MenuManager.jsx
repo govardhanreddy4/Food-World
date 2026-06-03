@@ -576,13 +576,14 @@ function MenuManager() {
     if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.MENU_ITEMS),
-      where("restaurantId", "==", currentUser.uid),
-      orderBy("name", "asc")
+      where("restaurantId", "==", currentUser.uid)
     );
     const unsub = onSnapshot(q, (snap) => {
-      setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const fetchedItems = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      fetchedItems.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      setItems(fetchedItems);
       setLoading(false);
-    });
+    }, (error) => console.error("Menu items listener error:", error));
     return () => unsub();
   }, [currentUser, currentUser?.uid]);
 
@@ -591,12 +592,13 @@ function MenuManager() {
     if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.CATEGORIES),
-      where("restaurantId", "==", currentUser.uid),
-      orderBy("displayOrder", "asc")
+      where("restaurantId", "==", currentUser.uid)
     );
     const unsub = onSnapshot(q, (snap) => {
-      setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
+      const fetchedCats = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      fetchedCats.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      setCategories(fetchedCats);
+    }, (error) => console.error("Categories listener error:", error));
     return () => unsub();
   }, [currentUser, currentUser?.uid]);
 
@@ -695,9 +697,19 @@ function MenuManager() {
       {loading ? (
         <p className="text-white/40 text-center py-20">Loading menu items…</p>
       ) : filteredItems.length === 0 ? (
-        <div className="text-center py-20 rounded-2xl" style={glassCard}>
-          <UtensilsCrossed size={40} className="text-white/15 mx-auto mb-3" />
-          <p className="text-white/40">No items in this category.</p>
+        <div className="flex flex-col items-center justify-center p-12 rounded-2xl text-center" style={glassCard}>
+          {items.length === 0 ? (
+            <>
+              <span className="text-5xl mb-4">🍽️</span>
+              <h3 className="text-xl font-semibold text-white">Your menu is empty</h3>
+              <p className="text-sm text-slate-400 mt-2 max-w-sm">Click <strong>+ Add Item</strong> to build your food catalog.</p>
+            </>
+          ) : (
+            <>
+              <UtensilsCrossed size={40} className="text-white/15 mx-auto mb-3" />
+              <p className="text-white/40">No items in this category.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
