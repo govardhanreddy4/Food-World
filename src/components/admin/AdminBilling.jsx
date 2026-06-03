@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { useAuth } from "../../context/AuthContext";
-import { Receipt, Calendar, Banknote } from "lucide-react";
+import { Receipt, Calendar, Banknote, Wallet, CreditCard } from "lucide-react";
 
 function AdminBilling() {
   const { currentUser } = useAuth();
@@ -85,12 +85,24 @@ function AdminBilling() {
   // ── Summary Metrics ────────────────────────────────────────
   const metrics = useMemo(() => {
     let totalRevenue = 0;
+    let totalCash = 0;
+    let totalUpi = 0;
+
     filteredOrders.forEach((o) => {
       totalRevenue += Number(o.totalAmount || 0);
+      if (o.paymentSplit) {
+        totalCash += Number(o.paymentSplit.cash || 0);
+        totalUpi += Number(o.paymentSplit.upi || 0);
+      } else {
+        totalCash += Number(o.totalAmount || 0);
+      }
     });
+
     return {
       totalRevenue,
       totalOrders: filteredOrders.length,
+      totalCash,
+      totalUpi,
     };
   }, [filteredOrders]);
 
@@ -149,7 +161,8 @@ function AdminBilling() {
       </div>
 
       {/* Summary Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Card 1: Total Revenue */}
         <div className="rounded-2xl p-6" style={glassCard}>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
@@ -157,17 +170,40 @@ function AdminBilling() {
             </div>
             <p className="text-white/50 text-sm font-medium">Selected Day Settlement</p>
           </div>
-          <p className="text-4xl font-black text-white ml-1">₹{metrics.totalRevenue.toFixed(2)}</p>
+          <p className="text-3xl font-black text-white ml-1">₹{metrics.totalRevenue.toFixed(2)}</p>
         </div>
 
+        {/* Card 2: Cash Collection */}
+        <div className="rounded-2xl p-6" style={glassCard}>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-300">
+              <Wallet size={20} />
+            </div>
+            <p className="text-white/50 text-sm font-medium">Today's Cash Collection</p>
+          </div>
+          <p className="text-3xl font-black text-white ml-1">₹{metrics.totalCash.toFixed(2)}</p>
+        </div>
+
+        {/* Card 3: UPI Collection */}
         <div className="rounded-2xl p-6" style={glassCard}>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
+              <CreditCard size={20} />
+            </div>
+            <p className="text-white/50 text-sm font-medium">Today's UPI Collection</p>
+          </div>
+          <p className="text-3xl font-black text-white ml-1">₹{metrics.totalUpi.toFixed(2)}</p>
+        </div>
+
+        {/* Card 4: Total Orders */}
+        <div className="rounded-2xl p-6" style={glassCard}>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-lg bg-white/10 text-white/80">
               <Receipt size={20} />
             </div>
             <p className="text-white/50 text-sm font-medium">Orders Finalized</p>
           </div>
-          <p className="text-4xl font-black text-white ml-1">{metrics.totalOrders}</p>
+          <p className="text-3xl font-black text-white ml-1">{metrics.totalOrders}</p>
         </div>
       </div>
 
