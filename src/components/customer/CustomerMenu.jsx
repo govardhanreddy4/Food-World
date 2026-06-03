@@ -74,18 +74,19 @@ function clearStoredSession(tableId) {
 // ─── Floating Call Waiter Button & Sheet ─────────────────────────────────────
 const WAITER_OPTIONS = ["Request Water", "Need Clean Plate", "Call Staff", "Bring Bill"];
 
-function CallWaiterModule({ tableId }) {
+function CallWaiterModule({ tableId, resId }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected]   = useState(null);
   const [sending, setSending]     = useState(false);
   const [sent, setSent]           = useState(false);
 
   async function handleSend() {
-    if (!selected || !tableId || sending) return;
+    if (!selected || !tableId || !resId || sending) return;
     setSending(true);
     try {
       await addDoc(collection(db, COLLECTIONS.WAITER_CALLS), {
         tableNumber: String(tableId),
+        resId: String(resId),
         requestType: selected,
         timestamp: serverTimestamp(),
         dismissed: false,
@@ -407,6 +408,7 @@ function CustomerMenu() {
   const [searchParams]    = useSearchParams();
   const navigate          = useNavigate();
   const tableId           = searchParams.get("table") || "";
+  const resId             = searchParams.get("resId") || "";
 
   const [menuItems, setMenuItems]       = useState([]);
   const [categories, setCategories]     = useState([]);
@@ -419,18 +421,20 @@ function CustomerMenu() {
 
   // ── On mount: check localStorage for existing locked session ─
   useEffect(() => {
-    if (!tableId) return;
+    if (!tableId || !resId) return;
     const session = getStoredSession(tableId);
     if (session?.locked && session?.orderId) {
       // Session is locked — redirect to receipt
-      navigate(`/receipt?table=${tableId}`, { replace: true });
+      navigate(`/receipt?resId=${resId}&table=${tableId}`, { replace: true });
     }
-  }, [tableId, navigate]);
+  }, [tableId, resId, navigate]);
 
   // ── Live menu items ───────────────────────────────────────────
   useEffect(() => {
+    if (!resId) return;
     const q = query(
       collection(db, COLLECTIONS.MENU_ITEMS),
+      where("userId", "==", resId),
       orderBy("name", "asc")
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -438,19 +442,21 @@ function CustomerMenu() {
       setLoadingMenu(false);
     });
     return () => unsub();
-  }, []);
+  }, [resId]);
 
   // ── Live categories ───────────────────────────────────────────
   useEffect(() => {
+    if (!resId) return;
     const q = query(
       collection(db, COLLECTIONS.CATEGORIES),
+      where("userId", "==", resId),
       orderBy("displayOrder", "asc")
     );
     const unsub = onSnapshot(q, (snap) => {
       setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
-  }, []);
+  }, [resId]);
 
   // ── Filtered menu ─────────────────────────────────────────────
   const filteredItems =
@@ -488,7 +494,7 @@ function CustomerMenu() {
   // ── Confirm Order ─────────────────────────────────────────────
   const handleConfirmOrder = useCallback(
     async (notes) => {
-      if (cart.length === 0 || !tableId) return;
+      if (cart.length === 0 || !tableId || !resId) return;
       setConfirming(true);
       setError("");
 
@@ -507,10 +513,11 @@ function CustomerMenu() {
           subtotal:  cartTotal,
         };
 
-        // Look for an existing ACTIVE order doc for this table
+        // Look for an existing ACTIVE order doc for this table and restaurant
         const existingQuery = query(
           collection(db, COLLECTIONS.ORDERS),
           where("tableNumber", "==", String(tableId)),
+          where("resId", "==", String(resId)),
           where("active", "==", true),
           limit(1)
         );
@@ -531,6 +538,7 @@ function CustomerMenu() {
           // ── Create new order session ──────────────────────────
           const newOrderRef = await addDoc(collection(db, COLLECTIONS.ORDERS), {
             tableNumber:  String(tableId),
+            resId:        String(resId),
             status:       "Pending",
             active:       true,
             totalAmount:  cartTotal,
@@ -551,7 +559,7 @@ function CustomerMenu() {
 
         // ── Navigate to receipt ───────────────────────────────
         setCartOpen(false);
-        navigate(`/receipt?table=${tableId}`);
+        navigate(`/receipt?resId=${resId}&table=${tableId}`);
       } catch (err) {
         console.error("[Order] Failed to confirm:", err);
         setError("Failed to send order. Please check your connection and try again.");
@@ -559,8 +567,36 @@ function CustomerMenu() {
         setConfirming(false);
       }
     },
-    [cart, tableId, cartTotal, navigate]
+    [cart, tableId, resId, cartTotal, navigate]
   );
+
+  // ── No resId param guard ──────────────────────────────────────
+  if (!resId) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{
+          background:
+            "radial-gradient(ellipse at 0% 0%, #ffd6e7 0%, #c3f0ca 25%, #c9e4ff 50%, #ffe8b5 75%, #f3d6ff 100%)",
+        }}
+      >
+        <div
+          className="text-center p-8 rounded-3xl"
+          style={{
+            background: "rgba(255,255,255,0.40)",
+            backdropFilter: "blur(16px)",
+            border: "1px solid rgba(255,255,255,0.50)",
+          }}
+        >
+          <AlertCircle size={40} className="text-red-400 mx-auto mb-3" />
+          <h2 className="text-[#1A1A1A] text-xl font-bold mb-2">Invalid Restaurant Code</h2>
+          <p className="text-gray-600 text-sm">
+            Please rescan the QR code on your table.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // ── No table param guard ──────────────────────────────────────
   if (!tableId) {
@@ -737,7 +773,7 @@ function CustomerMenu() {
       )}
 
       {/* ── Call Waiter Module ────────────────────────────────── */}
-      <CallWaiterModule tableId={tableId} />
+      <CallWaiterModule tableId={tableId} resId={resId} />
 
       {/* ── Cart Checkout Panel ───────────────────────────────── */}
       {cartOpen && (

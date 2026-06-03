@@ -64,6 +64,7 @@ function LiveReceipt() {
   const [searchParams] = useSearchParams();
   const navigate       = useNavigate();
   const tableId        = searchParams.get("table") || "";
+  const resId          = searchParams.get("resId") || "";
 
   const [order, setOrder]     = useState(null);
   const [loading, setLoading] = useState(true);
@@ -71,7 +72,7 @@ function LiveReceipt() {
 
   // ── Listen for active order for this table ──────────────────
   useEffect(() => {
-    if (!tableId) {
+    if (!tableId || !resId) {
       setLoading(false);
       setNotFound(true);
       return;
@@ -80,6 +81,7 @@ function LiveReceipt() {
     const q = query(
       collection(db, COLLECTIONS.ORDERS),
       where("tableNumber", "==", String(tableId)),
+      where("resId", "==", String(resId)),
       where("active", "==", true),
       limit(1)
     );
@@ -95,7 +97,7 @@ function LiveReceipt() {
 
         // Brief delay so customer can see transition
         setTimeout(() => {
-          navigate(`/menu?table=${tableId}`, { replace: true });
+          navigate(`/menu?resId=${resId}&table=${tableId}`, { replace: true });
         }, 2500);
         return;
       }
@@ -107,12 +109,12 @@ function LiveReceipt() {
     });
 
     return () => unsub();
-  }, [tableId, navigate]);
+  }, [tableId, resId, navigate]);
 
   // ── Add More Items → unlock session ─────────────────────────
   function handleAddMore() {
     clearStoredSession(tableId);
-    navigate(`/menu?table=${tableId}`);
+    navigate(`/menu?resId=${resId}&table=${tableId}`);
   }
 
   // ── Loading State ─────────────────────────────────────────────

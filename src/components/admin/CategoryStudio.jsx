@@ -18,6 +18,7 @@ import {
   collection,
   query,
   orderBy,
+  where,
   onSnapshot,
   addDoc,
   updateDoc,
@@ -27,6 +28,7 @@ import {
 } from "firebase/firestore";
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { Plus, Pencil, Trash2, Check, X, Tag, GripVertical } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 // ─── Shared dark-glass card style ───────────────────────────────────────────
 const glassCard = {
@@ -36,6 +38,7 @@ const glassCard = {
 };
 
 function CategoryStudio() {
+  const { currentUser } = useAuth();
   const [categories, setCategories]   = useState([]);
   const [loading, setLoading]         = useState(true);
   const [newLabel, setNewLabel]       = useState("");
@@ -49,8 +52,10 @@ function CategoryStudio() {
 
   // ── Live categories listener ──────────────────────────────────
   useEffect(() => {
+    if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.CATEGORIES),
+      where("userId", "==", currentUser.uid),
       orderBy("displayOrder", "asc")
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -60,7 +65,7 @@ function CategoryStudio() {
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [currentUser]);
 
   // ── Add new category ─────────────────────────────────────────
   async function handleAdd(e) {
@@ -72,6 +77,7 @@ function CategoryStudio() {
       await addDoc(collection(db, COLLECTIONS.CATEGORIES), {
         label: newLabel.trim(),
         displayOrder: parseInt(newOrder) || categories.length + 1,
+        userId: currentUser.uid,
         createdAt: serverTimestamp(),
       });
       setNewLabel("");

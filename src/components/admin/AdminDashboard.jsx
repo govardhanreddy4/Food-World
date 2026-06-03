@@ -325,8 +325,10 @@ function AdminDashboard() {
 
   // ── Live orders listener ──────────────────────────────────────
   useEffect(() => {
+    if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.ORDERS),
+      where("resId", "==", currentUser.uid),
       orderBy("createdAt", "desc")
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -349,15 +351,17 @@ function AdminDashboard() {
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [currentUser]);
 
   // ── Live waiter calls listener ────────────────────────────────
   // NOTE: Intentionally omits orderBy("timestamp") — combining where() +
   // orderBy() on different fields requires a Firestore composite index.
   // We sort client-side instead; active call volume is always tiny.
   useEffect(() => {
+    if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.WAITER_CALLS),
+      where("resId", "==", currentUser.uid),
       where("dismissed", "==", false)
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -370,7 +374,7 @@ function AdminDashboard() {
       setWaiterCalls(calls);
     });
     return () => unsub();
-  }, []);
+  }, [currentUser]);
 
   // ── Dismiss waiter call ───────────────────────────────────────
   async function dismissWaiterCall(callId) {

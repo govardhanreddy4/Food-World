@@ -573,7 +573,7 @@ function MenuManager() {
 
   // ── Live menu items listener ──────────────────────────────────
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || !currentUser.uid) return;
     const q = query(
       collection(db, COLLECTIONS.MENU_ITEMS),
       where("userId", "==", currentUser.uid),
@@ -588,12 +588,17 @@ function MenuManager() {
 
   // ── Live categories listener ──────────────────────────────────
   useEffect(() => {
-    const q = query(collection(db, COLLECTIONS.CATEGORIES), orderBy("displayOrder", "asc"));
+    if (!currentUser || !currentUser.uid) return;
+    const q = query(
+      collection(db, COLLECTIONS.CATEGORIES),
+      where("userId", "==", currentUser.uid),
+      orderBy("displayOrder", "asc")
+    );
     const unsub = onSnapshot(q, (snap) => {
       setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
-  }, []);
+  }, [currentUser]);
 
   // ── Filtered items ────────────────────────────────────────────
   const filteredItems =

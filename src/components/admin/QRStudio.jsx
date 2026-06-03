@@ -15,6 +15,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import QRCode from "qrcode";
 import { QrCode, Download, Printer, Table2, Link } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 const glassCard = {
   background: "rgba(15,23,42,0.6)",
@@ -23,6 +24,7 @@ const glassCard = {
 };
 
 function QRStudio() {
+  const { currentUser } = useAuth();
   const [tableId, setTableId]       = useState("");
   // window.location.origin captures the exact origin the app is loaded from:
   // • "http://localhost:5173"  when running locally via Vite dev server
@@ -34,8 +36,8 @@ function QRStudio() {
   const canvasRef                   = useRef(null);
 
   // ── Build the order URL ──────────────────────────────────────
-  const orderUrl = tableId.trim()
-    ? `${domain.replace(/\/$/, "")}/menu?table=${encodeURIComponent(tableId.trim())}`
+  const orderUrl = tableId.trim() && currentUser
+    ? `${domain.replace(/\/$/, "")}/menu?resId=${currentUser.uid}&table=${encodeURIComponent(tableId.trim())}`
     : "";
 
   // ── Generate QR whenever URL changes ────────────────────────
