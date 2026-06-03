@@ -26,8 +26,7 @@ import {
   doc,
   serverTimestamp,
 } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { db, storage, COLLECTIONS } from "../../firebase/firebaseConfig";
+import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
 import {
   Plus,
   Pencil,
@@ -68,6 +67,7 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
   const [uploading, setUploading] = useState(false);  // true while file is in transit
   const [uploadPct, setUploadPct] = useState(0);      // 0–100 progress integer
   const [localPreview, setLocalPreview] = useState(""); // object URL for instant preview
+  const [showFallbackUrl, setShowFallbackUrl] = useState(false); // Manual fallback URL input trigger
   const fileInputRef              = useRef(null);
 
   // Pre-populate form when editing an existing item
@@ -83,11 +83,14 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
       });
       // Show existing image as preview when editing
       setLocalPreview("");
+      setShowFallbackUrl(!!editItem.imageUrl);
     } else {
       setForm(emptyForm());
       setLocalPreview("");
+      setShowFallbackUrl(false);
     }
     setError("");
+    setUploading(false);
     setUploadPct(0);
   }, [editItem, isOpen]);
 
@@ -120,76 +123,61 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
       return;
     }
 
-    // Guard: cap at 5 MB to protect Storage quota
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image must be smaller than 5 MB.");
+    // Firestore has a 1MB size limit for the entire document.
+    // Encoded Base64 images must be small to prevent Firestore write failure.
+    // Cap at 600 KB to be safe.
+    if (file.size > 600 * 1024) {
+      setError("Image is too large. For local database storage, please select an image smaller than 600 KB.");
       return;
     }
 
-    // ── Instant local preview (browser memory, not uploaded yet) ────────
-    const objectUrl = URL.createObjectURL(file);
-    setLocalPreview(objectUrl);
-    setError("");
     setUploading(true);
-    setUploadPct(0);
+    setUploadPct(10);
+    setError("");
 
-    console.log("Starting upload for file:", file.name);
+    // Simulate progress during FileReader loading
+    const progressInterval = setInterval(() => {
+      setUploadPct((prev) => (prev < 90 ? prev + 15 : prev));
+    }, 100);
 
-    try {
-      // ── Build a collision-safe storage path ─────────────────────────
-      const storageRef = ref(storage, `menu_images/${Date.now()}-${file.name}`);
+    const reader = new FileReader();
 
-      // ── Resumable upload with progress tracking ───────────────────
-      const uploadTask = uploadBytesResumable(storageRef, file, {
-        contentType: file.type,
-      });
-
-      // Wrap the task in a Promise so we can await it cleanly
-      await new Promise((resolve, reject) => {
-        uploadTask.on(
-          "state_changed",
-          (snapshot) => {
-            // Update progress bar percentage
-            const pct = Math.round(
-              (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-            );
-            setUploadPct(pct);
-          },
-          (error) => {
-            console.error("FULL FIREBASE STORAGE ERROR OBJ:", error);
-            setUploading(false);
-            setLocalPreview("");
-            alert("Upload failed! Error code: " + error.code + " - " + error.message);
-            reject(error);
-          },
-          () => {
-            resolve();
-          }
-        );
-      });
-
-      // ── Get the permanent public download URL ─────────────────────
-      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-
-      // Write the URL into form state — it will be persisted to Firestore on submit
-      setForm((prev) => ({ ...prev, imageUrl: downloadURL }));
-      setUploadPct(100);
-    } catch (err) {
-      console.error("[Storage] Image upload catch block:", err);
-      setError("Image upload failed. Check your Firebase Storage rules and try again.");
-      setLocalPreview("");
+    // 5-second timeout threshold
+    const timeoutId = setTimeout(() => {
+      clearInterval(progressInterval);
+      reader.abort();
       setUploading(false);
-    } finally {
-      // Release the local object URL from browser memory
-      URL.revokeObjectURL(objectUrl);
-    }
+      setError("Image processing timed out.");
+      alert("Upload timed out. Please check your image file.");
+    }, 5000);
+
+    reader.onload = () => {
+      clearTimeout(timeoutId);
+      clearInterval(progressInterval);
+      setUploadPct(100);
+      
+      const base64String = reader.result;
+      setForm((prev) => ({ ...prev, imageUrl: base64String }));
+      setLocalPreview(base64String);
+      setUploading(false);
+    };
+
+    reader.onerror = (error) => {
+      clearTimeout(timeoutId);
+      clearInterval(progressInterval);
+      setUploading(false);
+      console.error("FileReader error:", error);
+      setError("Failed to read image file.");
+      alert("FileReader failed to process the image.");
+    };
+
+    reader.readAsDataURL(file);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    // Block save if an upload is still in progress
     if (uploading) {
-      setError("Please wait for the image upload to finish.");
+      setError("Please wait for the image processing to finish.");
       return;
     }
     if (!form.name.trim() || !form.price || !form.category) {
@@ -205,9 +193,20 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
     setSaving(true);
     setError("");
     try {
-      await onSave({ ...form, price });
+      // Map keys exactly as specified in the prompt
+      const payload = {
+        name: form.name,
+        description: form.description,
+        price: price,
+        category: form.category,
+        imageUrl: form.imageUrl, // The encoded local image text string
+        available: form.available,
+        isAvailable: form.available,
+      };
+      await onSave(payload);
       onClose();
-    } catch {
+    } catch (err) {
+      console.error(err);
       setError("Failed to save item. Please try again.");
     } finally {
       setSaving(false);
@@ -375,8 +374,17 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
           ──────────────────────────────────────────────────────────── */}
           <div>
             <label className="text-white/60 text-xs mb-1.5 block">
-              <span className="flex items-center gap-1.5">
-                <ImageIcon size={12} /> Dish Photo
+              <span className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <ImageIcon size={12} /> Dish Photo
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowFallbackUrl((prev) => !prev)}
+                  className="text-indigo-400 hover:text-indigo-300 text-[10px] font-medium transition-colors"
+                >
+                  {showFallbackUrl ? "Hide URL Input" : "Use Manual URL"}
+                </button>
               </span>
             </label>
 
@@ -477,6 +485,35 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
             )}
           </div>
 
+          {/* Fallback Image URL Input (displays if upload fails, timeout triggers, or user manual toggled) */}
+          {showFallbackUrl && (
+            <div
+              className="mt-1 p-3.5 rounded-xl border border-dashed text-sm transition-all duration-300"
+              style={{
+                background: "rgba(245,158,11,0.05)",
+                borderColor: "rgba(245,158,11,0.25)",
+              }}
+            >
+              <label className="text-amber-400 text-xs font-semibold mb-1 block">
+                Image URL (Fallback Input)
+              </label>
+              <input
+                type="url"
+                placeholder="https://example.com/dish-image.jpg"
+                value={form.imageUrl}
+                onChange={(e) => handleChange("imageUrl", e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-white text-xs placeholder-white/20 outline-none focus:ring-1 focus:ring-amber-500/50 bg-slate-900/60 border border-white/10"
+                style={{
+                  background: "rgba(15,23,42,0.8)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              />
+              <p className="text-white/40 text-[10px] mt-1.5 leading-relaxed">
+                If Storage is blocked, paste a direct public image link here.
+              </p>
+            </div>
+          )}
+
           {/* Availability Toggle */}
           <div className="flex items-center justify-between p-4 rounded-xl"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
@@ -571,8 +608,10 @@ function MenuManager() {
 
   // ── Toggle availability ───────────────────────────────────────
   async function toggleAvailability(item) {
+    const nextVal = !(item.available ?? item.isAvailable ?? true);
     await updateDoc(doc(db, COLLECTIONS.MENU_ITEMS, item.id), {
-      available: !item.available,
+      available: nextVal,
+      isAvailable: nextVal,
     });
   }
 
