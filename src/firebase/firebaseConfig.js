@@ -91,6 +91,7 @@ export const COLLECTIONS = {
   CATEGORIES:   "categories",   // Dynamic filter category labels
   ORDERS:       "orders",        // Active and historical table order sessions
   WAITER_CALLS: "waiterCalls",  // Real-time staff alert pings from customers
+  SETTINGS:     "settings",      // Restaurant-specific configurations (alerts, etc.)
 };
 
 export default app;

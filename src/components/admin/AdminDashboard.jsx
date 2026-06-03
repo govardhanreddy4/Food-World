@@ -79,7 +79,7 @@ const STATUS_CONFIG = {
 };
 
 // ─── Web Audio API Alert Beep ─────────────────────────────────────────────────
-function playNewOrderBeep() {
+function playDefaultBeep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const tones = [
@@ -141,6 +141,42 @@ function AdminDashboard() {
   const [cashAmount, setCashAmount] = useState("");
   const [upiAmount, setUpiAmount] = useState("");
 
+  // ── Settings & Audio State ──────────────────────────────────────
+  const [settings, setSettings] = useState(null);
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    const unsub = onSnapshot(doc(db, COLLECTIONS.SETTINGS, currentUser.uid), (snap) => {
+      if (snap.exists()) setSettings(snap.data());
+    });
+    return () => unsub();
+  }, [currentUser?.uid]);
+
+  const playOrderAlert = () => {
+    const config = settings?.orderAlert;
+    if (config?.audioUrl) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      const audio = new Audio(config.audioUrl);
+      audioRef.current = audio;
+      audio.loop = true;
+      audio.play().catch(console.error);
+      
+      const duration = config.duration || 15;
+      setTimeout(() => {
+        if (audioRef.current === audio) {
+          audio.pause();
+          audio.currentTime = 0;
+        }
+      }, duration * 1000);
+    } else {
+      playDefaultBeep();
+    }
+  };
+
   // ── Live orders listener ──────────────────────────────────────
   useEffect(() => {
     if (!currentUser || !currentUser.uid) return;
@@ -160,7 +196,7 @@ function AdminDashboard() {
         if (!prevOrderIds.current.has(id)) hasNewPending = true;
       });
       if (hasNewPending && prevOrderIds.current.size > 0) {
-        playNewOrderBeep();
+        playOrderAlert();
       }
       prevOrderIds.current = currentPendingIds;
 

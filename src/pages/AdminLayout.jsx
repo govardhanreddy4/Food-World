@@ -22,6 +22,7 @@ import {
   ChefHat,
   LineChart,
   Receipt,
+  Settings as SettingsIcon,
   Volume2,
   VolumeX,
   X,
@@ -45,10 +46,11 @@ const NAV_ITEMS = [
   { to: "/admin/qr",       label: "QR Studio",    icon: QrCode },
   { to: "/admin/sales",    label: "Sales & Analytics", icon: LineChart },
   { to: "/admin/billing",  label: "Billing History",   icon: Receipt },
+  { to: "/admin/settings", label: "Settings",          icon: SettingsIcon },
 ];
 
-// ─── Web Audio API Notification Chime ───────────────────────────────────────
-function playNotificationChime() {
+// Default fallback chime
+function playDefaultChime() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
@@ -60,16 +62,13 @@ function playNotificationChime() {
     osc.type = "sine";
     osc.frequency.setValueAtTime(1200, ctx.currentTime);
     
-    // Quick attack and release for a crisp "ding"
     gain.gain.setValueAtTime(0, ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
     
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.35);
-  } catch {
-    // Audio API not supported or blocked by browser — silent fail
-  }
+  } catch {}
 }
 
 function AdminLayout() {
@@ -80,6 +79,43 @@ function AdminLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem("fw_admin_muted") === "true");
   const prevCallIds = useRef(new Set());
+  const [settings, setSettings] = useState(null);
+  const audioRef = useRef(null);
+
+  // ── Fetch Settings ────────────────────────────────────────────
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    const unsub = onSnapshot(doc(db, COLLECTIONS.SETTINGS, currentUser.uid), (snap) => {
+      if (snap.exists()) {
+        setSettings(snap.data());
+      }
+    });
+    return () => unsub();
+  }, [currentUser?.uid]);
+
+  const playChime = () => {
+    const config = settings?.customerAlert;
+    if (config?.audioUrl) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      const audio = new Audio(config.audioUrl);
+      audioRef.current = audio;
+      audio.loop = true;
+      audio.play().catch(console.error);
+      
+      const duration = config.duration || 15;
+      setTimeout(() => {
+        if (audioRef.current === audio) {
+          audio.pause();
+          audio.currentTime = 0;
+        }
+      }, duration * 1000);
+    } else {
+      playDefaultChime();
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem("fw_admin_muted", isMuted);
@@ -167,14 +203,19 @@ function AdminLayout() {
             </div>
             {waiterCalls.length > 0 && (
               <button
-                onClick={() => {
+                onClick={async () => {
                   setIsOpen(false);
-                  navigate("/admin");
-                  if (mobileMenuOpen) setMobileMenuOpen(false);
+                  try {
+                    await Promise.all(
+                      waiterCalls.map(call =>
+                        updateDoc(doc(db, COLLECTIONS.WAITER_CALLS, call.id), { dismissed: true })
+                      )
+                    );
+                  } catch(e) { console.error("Error clearing all notifications:", e); }
                 }}
-                className="w-full p-3 text-center text-xs font-semibold text-indigo-400 hover:text-indigo-300 hover:bg-white/5 transition-colors"
+                className="w-full p-3 text-center text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors"
               >
-                Go to Dashboard
+                Clear All
               </button>
             )}
           </div>
@@ -203,7 +244,7 @@ function AdminLayout() {
       
       // If there's a new call and we had a previous state, and it's not muted, play chime
       if (hasNewCall && prevCallIds.current.size > 0 && !isMuted) {
-        playNotificationChime();
+        playChime();
       }
       prevCallIds.current = currentCallIds;
 
