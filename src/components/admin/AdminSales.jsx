@@ -154,7 +154,7 @@ function AdminSales() {
       </div>
 
       {/* Time Filters */}
-      <div className="flex flex-col md:flex-row items-center gap-2 mb-8 p-1.5 rounded-2xl w-fit" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-8 p-1.5 rounded-2xl w-full sm:w-fit" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
         <button
           onClick={() => setTimeFilter("Overall")}
           className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${timeFilter === "Overall" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
@@ -205,9 +205,9 @@ function AdminSales() {
         </div>
       ) : (
         <div className="max-w-6xl">
-          {/* Key Metric Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="rounded-2xl p-5" style={glassCard}>
+          {/* Top Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <div className="rounded-2xl p-6 relative overflow-hidden group" style={glassCard}>
               <div className="flex items-start justify-between mb-4">
                 <p className="text-white/50 text-sm font-medium uppercase tracking-wider">Total Revenue</p>
                 <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">

@@ -26,6 +26,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  Menu,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { db, COLLECTIONS } from "../firebase/firebaseConfig";
@@ -306,7 +307,7 @@ function AdminLayout() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex w-full overflow-x-hidden relative"
       style={{ background: "#0B0F19" }}
     >
       {/* ── Desktop Sidebar ──────────────────────────────────── */}
@@ -380,58 +381,76 @@ function AdminLayout() {
             <NotificationButton />
           </div>
           <button
-            onClick={() => setMobileMenuOpen((v) => !v)}
-            className="text-white/60 hover:text-white p-1"
+            onClick={() => setMobileMenuOpen(true)}
+            className="text-white/60 hover:text-white p-2 -mr-2"
           >
-            <LayoutDashboard size={20} />
+            <Menu size={24} />
           </button>
         </div>
       </div>
 
-      {/* Mobile Slide-out Menu */}
-      {mobileMenuOpen && (
+      {/* Mobile Slide-out Drawer */}
+      <div
+        className={`lg:hidden fixed inset-0 z-50 transition-opacity duration-300 ${mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+        onClick={() => setMobileMenuOpen(false)}
+      >
         <div
-          className="lg:hidden fixed inset-0 z-30"
-          onClick={() => setMobileMenuOpen(false)}
-          style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+          className={`fixed top-0 left-0 bottom-0 w-[280px] p-5 flex flex-col transition-transform duration-300 ease-out transform ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+          style={{
+            background: "#0B0F19",
+            borderRight: "1px solid rgba(255,255,255,0.07)",
+          }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <div
-            className="absolute top-14 left-0 right-0 p-4 flex flex-col gap-1"
-            style={{
-              background: "#0B0F19",
-              borderBottom: "1px solid rgba(255,255,255,0.07)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <NavLinks />
-            
-            {/* Mobile User Info + Logout */}
-            <div
-              className="mt-2 p-3 rounded-xl"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.07)",
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="overflow-hidden pr-2">
-                  <p className="text-white/70 text-sm font-medium truncate mb-0.5">
-                    {user?.displayName || "Admin"}
-                  </p>
-                  <p className="text-white/30 text-xs truncate">{user?.email}</p>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors shrink-0"
-                >
-                  <LogOut size={16} />
-                  <span className="text-xs font-semibold">Sign out</span>
-                </button>
+          {/* Mobile Drawer Header */}
+          <div className="flex items-center justify-between mb-8 px-1">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+              >
+                <ChefHat size={18} className="text-white" />
               </div>
+              <div>
+                <p className="text-white font-bold text-sm leading-none">Food World</p>
+                <p className="text-white/30 text-xs mt-0.5">Admin Panel</p>
+              </div>
+            </div>
+            <button onClick={() => setMobileMenuOpen(false)} className="text-white/40 hover:text-white p-1">
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="overflow-y-auto flex-1 scrollbar-hide -mx-2 px-2">
+            <NavLinks />
+          </div>
+          
+          {/* Mobile User Info + Logout */}
+          <div
+            className="mt-4 p-3 rounded-xl shrink-0"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.07)",
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="overflow-hidden pr-2">
+                <p className="text-white/70 text-sm font-medium truncate mb-0.5">
+                  {user?.displayName || "Admin"}
+                </p>
+                <p className="text-white/30 text-xs truncate">{user?.email}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 p-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors shrink-0"
+              >
+                <LogOut size={16} />
+              </button>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* ── Main Content Area ────────────────────────────────── */}
       <main className="flex-1 min-w-0 pt-14 lg:pt-0 overflow-auto">

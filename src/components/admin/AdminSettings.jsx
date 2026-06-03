@@ -223,7 +223,7 @@ function AdminSettings() {
                 max="60"
                 value={settings.orderAlert.duration}
                 onChange={(e) => updateField("orderAlert", "duration", Number(e.target.value))}
-                className="w-32 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500/50"
+                className="w-full md:w-32 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500/50"
               />
               <p className="text-white/30 text-[10px] mt-2">Recommended: 15 seconds to ensure staff attention during rush.</p>
             </div>
@@ -232,8 +232,8 @@ function AdminSettings() {
               <label className="block text-sm font-semibold text-white/70 mb-3">
                 Custom Alert Tone
               </label>
-              <div className="flex flex-wrap items-center gap-3">
-                <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <label className={`cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all ${
                   uploadingOrder ? "bg-white/5 text-white/40" : "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20"
                 }`}>
                   <Upload size={16} />
@@ -249,7 +249,7 @@ function AdminSettings() {
                 
                 <button
                   onClick={() => playTestSound("orderAlert")}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all ${
                     playingOrder ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" : "bg-white/5 text-white hover:bg-white/10"
                   }`}
                 >
@@ -294,7 +294,7 @@ function AdminSettings() {
                 max="60"
                 value={settings.customerAlert.duration}
                 onChange={(e) => updateField("customerAlert", "duration", Number(e.target.value))}
-                className="w-32 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500/50"
+                className="w-full md:w-32 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500/50"
               />
               <p className="text-white/30 text-[10px] mt-2">Recommended: 15 seconds to ensure staff attention during rush.</p>
             </div>
@@ -303,8 +303,8 @@ function AdminSettings() {
               <label className="block text-sm font-semibold text-white/70 mb-3">
                 Custom Alert Tone
               </label>
-              <div className="flex flex-wrap items-center gap-3">
-                <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <label className={`cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all ${
                   uploadingCustomer ? "bg-white/5 text-white/40" : "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20"
                 }`}>
                   <Upload size={16} />
@@ -320,7 +320,7 @@ function AdminSettings() {
                 
                 <button
                   onClick={() => playTestSound("customerAlert")}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all ${
                     playingCustomer ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" : "bg-white/5 text-white hover:bg-white/10"
                   }`}
                 >

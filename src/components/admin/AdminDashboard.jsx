@@ -347,7 +347,7 @@ function AdminDashboard() {
       return (
         <button
           onClick={() => updateBatchStatus(orderId, batch.id, "Preparing")}
-          className="px-2 py-1 text-[10px] font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded hover:opacity-90 transition-all shadow-sm"
+          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-lg hover:opacity-90 transition-all shadow-sm"
         >
           Start Cooking
         </button>
@@ -357,7 +357,7 @@ function AdminDashboard() {
       return (
         <button
           onClick={() => updateBatchStatus(orderId, batch.id, "Ready")}
-          className="px-2 py-1 text-[10px] font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded hover:opacity-90 transition-all shadow-sm"
+          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg hover:opacity-90 transition-all shadow-sm"
         >
           Mark Prepared
         </button>
@@ -367,7 +367,7 @@ function AdminDashboard() {
       return (
         <button
           onClick={() => updateBatchStatus(orderId, batch.id, "Served")}
-          className="px-2 py-1 text-[10px] font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded hover:opacity-90 transition-all shadow-sm"
+          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg hover:opacity-90 transition-all shadow-sm"
         >
           Serve to Table
         </button>
@@ -395,7 +395,7 @@ function AdminDashboard() {
         </div>
 
         {/* Stats bar */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
             { label: "Pending",       value: stats.pending,      color: "#ef4444" },
             { label: "Preparing",     value: stats.preparing,    color: "#f59e0b" },

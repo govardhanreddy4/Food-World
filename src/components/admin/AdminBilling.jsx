@@ -148,13 +148,13 @@ function AdminBilling() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl" style={glassCard}>
-          <Calendar size={18} className="text-white/50" />
+        <div className="flex items-center gap-2 px-4 py-2 rounded-xl w-full md:w-auto" style={glassCard}>
+          <Calendar size={18} className="text-white/50 shrink-0" />
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="bg-transparent border-none outline-none text-white font-medium text-sm w-36 focus:ring-0"
+            className="bg-transparent border-none outline-none text-white font-medium text-sm w-full md:w-36 focus:ring-0"
             style={{ colorScheme: "dark" }}
           />
         </div>
