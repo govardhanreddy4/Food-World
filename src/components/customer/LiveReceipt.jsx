@@ -42,13 +42,15 @@ function clearStoredSession(tableId) {
 
 // ─── Status badge styles ──────────────────────────────────────────────────────
 function StatusBadge({ status }) {
+  const norm = (status || "").toLowerCase();
   const styles = {
-    Pending:          { bg: "rgba(239,68,68,0.12)",   color: "#ef4444", label: "Sent to Kitchen" },
-    Preparing:        { bg: "rgba(245,158,11,0.12)",  color: "#f59e0b", label: "Being Prepared 🔥" },
-    Served:           { bg: "rgba(16,185,129,0.12)",  color: "#10b981", label: "Served ✓" },
-    "Completed/Paid": { bg: "rgba(107,114,128,0.12)", color: "#6b7280", label: "Completed & Paid" },
+    pending:          { bg: "rgba(239,68,68,0.12)",   color: "#ef4444", label: "Sent to Kitchen" },
+    preparing:        { bg: "rgba(245,158,11,0.12)",  color: "#f59e0b", label: "Being Prepared 🔥" },
+    ready:            { bg: "rgba(59,130,246,0.12)",  color: "#3b82f6", label: "Ready to Serve 🍽️" },
+    served:           { bg: "rgba(16,185,129,0.12)",  color: "#10b981", label: "Served ✓" },
+    "completed/paid": { bg: "rgba(107,114,128,0.12)", color: "#6b7280", label: "Completed & Paid" },
   };
-  const s = styles[status] || styles["Pending"];
+  const s = styles[norm] || styles["pending"];
   return (
     <span
       className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold"

@@ -24,6 +24,7 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { useElapsedTimer } from "../../hooks/useElapsedTimer";
@@ -111,13 +112,15 @@ const WAITER_ICONS = {
 };
 
 // ─── Kitchen Timer Sub-Component ──────────────────────────────────────────────
+// ─── Kitchen Timer Sub-Component ──────────────────────────────────────────────
 function OrderTimer({ timestamp, status }) {
   const { elapsed, isUrgent } = useElapsedTimer(timestamp);
-  const isActive = status === "Pending" || status === "Preparing";
+  const norm = (status || "").toLowerCase();
+  const isActive = norm === "pending" || norm === "preparing";
   if (!isActive) return null;
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded-full ${
+      className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
         isUrgent ? "animate-pulse-orange text-orange-300" : "text-white/40"
       }`}
       style={
@@ -126,153 +129,9 @@ function OrderTimer({ timestamp, status }) {
           : { background: "rgba(255,255,255,0.05)" }
       }
     >
-      <Clock size={11} />
+      <Clock size={9} />
       {elapsed}
-      {isUrgent && <span className="ml-0.5">⚠️</span>}
     </span>
-  );
-}
-
-// ─── Single Order Ticket ──────────────────────────────────────────────────────
-function OrderTicket({ order, onReset }) {
-  const cfg        = STATUS_CONFIG[order.status] || STATUS_CONFIG["Pending"];
-  const StatusIcon = cfg.icon;
-  const [resetting, setResetting] = useState(false);
-  const [advancing, setAdvancing] = useState(false);
-
-  async function advanceStatus() {
-    if (!cfg.next || advancing) return;
-    setAdvancing(true);
-    try {
-      await updateDoc(doc(db, COLLECTIONS.ORDERS, order.id), { status: cfg.next });
-    } finally {
-      setAdvancing(false);
-    }
-  }
-
-  async function handleReset() {
-    if (resetting) return;
-    setResetting(true);
-    try {
-      await onReset(order.id);
-    } finally {
-      setResetting(false);
-    }
-  }
-
-  const latestTimestamp = order.orderBatches?.[order.orderBatches.length - 1]?.timestamp;
-
-  return (
-    <div
-      className="rounded-2xl p-4 transition-all"
-      style={{
-        background: "rgba(15,23,42,0.7)",
-        border: `1px solid ${cfg.color}40`,
-        backdropFilter: "blur(16px)",
-        boxShadow: `0 0 20px ${cfg.glowColor}, 0 4px 24px rgba(0,0,0,0.3)`,
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: `${cfg.color}20`, border: `1px solid ${cfg.color}40` }}
-          >
-            <StatusIcon size={16} style={{ color: cfg.color }} />
-          </div>
-          <div>
-            <p className="text-white font-bold text-sm leading-none">
-              Table {order.tableNumber}
-            </p>
-            <p className="text-white/35 text-xs mt-0.5">
-              {order.orderBatches?.length || 0} batch
-              {order.orderBatches?.length !== 1 ? "es" : ""}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <span
-            className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-            style={{ background: `${cfg.color}20`, color: cfg.color }}
-          >
-            {cfg.label}
-          </span>
-          <OrderTimer timestamp={latestTimestamp} status={order.status} />
-        </div>
-      </div>
-
-      {/* Order Batches */}
-      <div className="space-y-2 mb-3 max-h-48 overflow-y-auto pr-1">
-        {order.orderBatches?.map((batch, bIdx) => (
-          <div
-            key={bIdx}
-            className="rounded-xl p-3"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
-          >
-            <p className="text-white/30 text-xs mb-1.5 flex items-center gap-1">
-              <Clock size={10} />
-              Batch {bIdx + 1}
-              {batch.timestamp && (
-                <span className="ml-1">
-                  {new Date(batch.timestamp?.toDate?.() || batch.timestamp).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              )}
-            </p>
-            {batch.items?.map((item, i) => (
-              <div key={i} className="flex justify-between items-baseline text-sm">
-                <span className="text-white/70">{item.quantity}× {item.name}</span>
-                <span className="text-white/50 text-xs">
-                  ₹{(item.price * item.quantity).toFixed(2)}
-                </span>
-              </div>
-            ))}
-            {batch.notes && (
-              <p className="text-amber-300/70 text-xs mt-1.5 italic">📝 {batch.notes}</p>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Total */}
-      <div
-        className="flex justify-between items-center px-3 py-2 rounded-xl mb-3"
-        style={{ background: "rgba(255,255,255,0.04)" }}
-      >
-        <span className="text-white/50 text-sm">Total Bill</span>
-        <span className="text-white font-bold text-base">
-          ₹{Number(order.totalAmount || 0).toFixed(2)}
-        </span>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        {cfg.next && (
-          <button
-            onClick={advanceStatus}
-            disabled={advancing}
-            className="flex-1 py-2 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ background: `linear-gradient(135deg, ${cfg.color}cc, ${cfg.color}88)` }}
-          >
-            {advancing ? "Updating…" : cfg.nextLabel}
-          </button>
-        )}
-        {order.status !== "Completed/Paid" && (
-          <button
-            onClick={handleReset}
-            disabled={resetting}
-            title="Customer paid — reset table"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all disabled:opacity-50"
-          >
-            <RotateCcw size={13} />
-            {resetting ? "…" : "Reset"}
-          </button>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -332,11 +191,11 @@ function AdminDashboard() {
       orderBy("createdAt", "desc")
     );
     const unsub = onSnapshot(q, (snap) => {
-      const newOrders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const fetchedOrders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       // Detect new Pending orders → play alert beep
       const currentPendingIds = new Set(
-        newOrders.filter((o) => o.status === "Pending").map((o) => o.id)
+        fetchedOrders.filter((o) => (o.status || "").toLowerCase() === "pending").map((o) => o.id)
       );
       let hasNewPending = false;
       currentPendingIds.forEach((id) => {
@@ -347,16 +206,37 @@ function AdminDashboard() {
       }
       prevOrderIds.current = currentPendingIds;
 
-      setOrders(newOrders);
+      const STATUS_WEIGHTS = {
+        pending: 1,
+        preparing: 2,
+        ready: 3,
+        served: 4,
+      };
+
+      // Immutable shallow copy sorting
+      const sortedOrders = [...fetchedOrders].sort((a, b) => {
+        const statusA = (a.status || "").toLowerCase();
+        const statusB = (b.status || "").toLowerCase();
+        const weightA = STATUS_WEIGHTS[statusA] || 99;
+        const weightB = STATUS_WEIGHTS[statusB] || 99;
+
+        if (weightA !== weightB) {
+          return weightA - weightB;
+        }
+
+        // Secondary sort: oldest first by timestamp
+        const timeA = a.createdAt?.toMillis?.() || a.createdAt || 0;
+        const timeB = b.createdAt?.toMillis?.() || b.createdAt || 0;
+        return timeA - timeB;
+      });
+
+      setOrders(sortedOrders);
       setLoading(false);
     });
     return () => unsub();
   }, [currentUser, currentUser?.uid]);
 
   // ── Live waiter calls listener ────────────────────────────────
-  // NOTE: Intentionally omits orderBy("timestamp") — combining where() +
-  // orderBy() on different fields requires a Firestore composite index.
-  // We sort client-side instead; active call volume is always tiny.
   useEffect(() => {
     if (!currentUser || !currentUser.uid) return;
     const q = query(
@@ -381,49 +261,134 @@ function AdminDashboard() {
     try {
       await updateDoc(doc(db, COLLECTIONS.WAITER_CALLS, callId), { dismissed: true });
     } catch {
-      // Fallback: delete the document if update fails
       await deleteDoc(doc(db, COLLECTIONS.WAITER_CALLS, callId));
     }
   }
 
-  // ── Reset table (payment complete) ───────────────────────────
-  async function handleResetTable(orderId) {
-    await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
-      status: "Completed/Paid",
-      active: false,
-    });
+  // ── Update Order Status (Race-Condition-Proof + Optimistic) ───
+  async function updateOrderStatus(orderId, newStatus, additionalFields = {}) {
+    // Optimistic local state update
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId
+          ? { ...order, status: newStatus, ...additionalFields }
+          : order
+      )
+    );
+
+    try {
+      await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+        status: newStatus,
+        ...additionalFields,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("Failed to update status:", err);
+      alert("Failed to update order status. Please try again.");
+    }
   }
 
   // ── Filter orders by tab ──────────────────────────────────────
   const filteredOrders = orders.filter((o) => {
+    const norm = (o.status || "").toLowerCase();
     if (statusFilter === "Active")
-      return o.active === true || ["Pending", "Preparing", "Served"].includes(o.status);
+      return o.active === true || ["pending", "preparing", "ready", "served"].includes(norm);
     if (statusFilter === "Completed")
-      return o.status === "Completed/Paid";
+      return norm === "completed/paid";
     return true;
   });
 
   // ── Summary counts ────────────────────────────────────────────
   const stats = {
-    pending:      orders.filter((o) => o.status === "Pending").length,
-    preparing:    orders.filter((o) => o.status === "Preparing").length,
-    served:       orders.filter((o) => o.status === "Served").length,
+    pending:      orders.filter((o) => (o.status || "").toLowerCase() === "pending").length,
+    preparing:    orders.filter((o) => (o.status || "").toLowerCase() === "preparing").length,
+    served:       orders.filter((o) => (o.status || "").toLowerCase() === "served").length,
     activeTables: orders.filter((o) => o.active).length,
+  };
+
+  // ── Helper: get status pill styling ───────────────────────────
+  const getStatusBadge = (status) => {
+    const norm = (status || "").toLowerCase();
+    const styles = {
+      pending: "bg-red-500/10 text-red-400 border border-red-500/20",
+      preparing: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
+      ready: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
+      served: "bg-green-500/10 text-green-400 border border-green-500/20",
+    };
+    const names = {
+      pending: "Pending",
+      preparing: "Preparing",
+      ready: "Ready",
+      served: "Served",
+    };
+    const cls = styles[norm] || "bg-slate-500/10 text-slate-400 border border-slate-500/20";
+    const lbl = names[norm] || status;
+    return (
+      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
+        {lbl}
+      </span>
+    );
+  };
+
+  // ── Helper: render KDS actions ────────────────────────────────
+  const renderActions = (order) => {
+    const norm = (order.status || "").toLowerCase();
+    if (norm === "pending") {
+      return (
+        <button
+          onClick={() => updateOrderStatus(order.id, "preparing")}
+          className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-md hover:opacity-90 transition-all shadow-md shadow-orange-500/25"
+        >
+          Start Cooking
+        </button>
+      );
+    }
+    if (norm === "preparing") {
+      return (
+        <button
+          onClick={() => updateOrderStatus(order.id, "ready")}
+          className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-md hover:opacity-90 transition-all shadow-md shadow-blue-500/25"
+        >
+          Mark Prepared
+        </button>
+      );
+    }
+    if (norm === "ready") {
+      return (
+        <button
+          onClick={() => updateOrderStatus(order.id, "served")}
+          className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-md hover:opacity-90 transition-all shadow-md shadow-green-500/25"
+        >
+          Serve to Table
+        </button>
+      );
+    }
+    if (norm === "served") {
+      return (
+        <button
+          onClick={() => updateOrderStatus(order.id, "Completed/Paid", { active: false })}
+          className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-slate-600 to-slate-700 rounded-md hover:opacity-90 transition-all border border-slate-500/30"
+        >
+          Archive/Reset
+        </button>
+      );
+    }
+    return null;
   };
 
   return (
     <div className="flex min-h-screen" style={{ background: "#0B0F19" }}>
-      {/* ── Main content ─────────────────────────────────────────── */}
+      {/* ── Main KDS Content ─────────────────────────────────────── */}
       <div className="flex-1 p-6 min-w-0">
         {/* Page header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-white text-2xl font-bold">Live Dashboard</h1>
-            <p className="text-white/40 text-sm">Real-time order feed — auto-refreshing</p>
+            <h1 className="text-white text-2xl font-bold">Kitchen Display System (KDS)</h1>
+            <p className="text-white/40 text-sm">Real-time KDS workflow table</p>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-emerald-400/70 text-xs font-medium">Live</span>
+            <span className="text-emerald-400/70 text-xs font-medium">Live Feed</span>
           </div>
         </div>
 
@@ -470,7 +435,7 @@ function AdminDashboard() {
           ))}
         </div>
 
-        {/* Order tickets */}
+        {/* KDS Table View */}
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -482,13 +447,85 @@ function AdminDashboard() {
           >
             <ChefHat size={40} className="text-white/10 mx-auto mb-3" />
             <p className="text-white/30">No orders in this view.</p>
-            <p className="text-white/15 text-sm mt-1">Waiting for customers to place orders…</p>
+            <p className="text-white/15 text-sm mt-1">Waiting for customer orders…</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredOrders.map((order) => (
-              <OrderTicket key={order.id} order={order} onReset={handleResetTable} />
-            ))}
+          <div className="overflow-x-auto rounded-2xl border border-white/10" style={{ background: "rgba(15,23,42,0.4)", backdropFilter: "blur(16px)" }}>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/10 text-white/40 text-xs uppercase tracking-wider bg-white/5">
+                  <th className="py-3.5 px-4 font-semibold">Table No.</th>
+                  <th className="py-3.5 px-4 font-semibold">Order Details</th>
+                  <th className="py-3.5 px-4 font-semibold">Total</th>
+                  <th className="py-3.5 px-4 font-semibold">Status</th>
+                  <th className="py-3.5 px-4 font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-white/80">
+                {filteredOrders.map((order) => {
+                  const latestTimestamp = order.orderBatches?.[order.orderBatches.length - 1]?.timestamp;
+                  return (
+                    <tr key={order.id} className="hover:bg-white/5 transition-colors">
+                      {/* Table No. */}
+                      <td className="py-4 px-4 align-top font-bold text-sm">
+                        <div className="flex flex-col gap-1.5 items-start">
+                          <span className="text-white text-base">Table {order.tableNumber}</span>
+                          <OrderTimer timestamp={latestTimestamp} status={order.status} />
+                        </div>
+                      </td>
+                      {/* Order Details */}
+                      <td className="py-4 px-4 align-top">
+                        <div className="space-y-2 max-w-lg">
+                          {order.orderBatches?.map((batch, bIdx) => (
+                            <div key={bIdx} className="text-xs bg-white/5 rounded-xl p-2.5 border border-white/5">
+                              <div className="flex justify-between text-[10px] text-white/35 mb-1.5 font-mono">
+                                <span>Batch {bIdx + 1}</span>
+                                {batch.timestamp && (
+                                  <span>
+                                    {new Date(batch.timestamp?.toDate?.() || batch.timestamp).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                {batch.items?.map((item, i) => (
+                                  <div key={i} className="flex justify-between text-sm">
+                                    <span className="text-white/85 font-medium">{item.quantity}× {item.name}</span>
+                                    <span className="text-white/40 text-xs">₹{(item.price * item.quantity).toFixed(0)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              {batch.notes && (
+                                <div className="text-amber-300/80 italic text-xs mt-2 border-t border-white/5 pt-1.5 flex items-start gap-1">
+                                  <span>📝</span>
+                                  <span>{batch.notes}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                      {/* Total */}
+                      <td className="py-4 px-4 align-top font-bold text-sm text-white">
+                        ₹{Number(order.totalAmount || 0).toFixed(2)}
+                      </td>
+                      {/* Status */}
+                      <td className="py-4 px-4 align-top">
+                        {getStatusBadge(order.status)}
+                      </td>
+                      {/* Actions */}
+                      <td className="py-4 px-4 align-top">
+                        <div className="flex items-center gap-2">
+                          {renderActions(order)}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
