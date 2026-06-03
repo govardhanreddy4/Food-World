@@ -33,6 +33,7 @@ import MenuManager     from "./components/admin/MenuManager";
 import CategoryStudio  from "./components/admin/CategoryStudio";
 import QRStudio        from "./components/admin/QRStudio";
 import AdminSales      from "./components/admin/AdminSales";
+import AdminBilling    from "./components/admin/AdminBilling";
 
 // ── Customer Components ────────────────────────────────────────────────────────
 import CustomerMenu from "./components/customer/CustomerMenu";
@@ -58,6 +59,7 @@ function App() {
               <Route path="/admin/categories"  element={<CategoryStudio />} />
               <Route path="/admin/qr"          element={<QRStudio />} />
               <Route path="/admin/sales"       element={<AdminSales />} />
+              <Route path="/admin/billing"     element={<AdminBilling />} />
             </Route>
           </Route>
 

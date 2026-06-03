@@ -136,6 +136,11 @@ function AdminDashboard() {
   const [loading, setLoading]         = useState(true);
   const prevOrderIds                  = useRef(new Set());
 
+  // ── Settlement State ──────────────────────────────────────────
+  const [settleOrder, setSettleOrder] = useState(null);
+  const [cashAmount, setCashAmount] = useState("");
+  const [upiAmount, setUpiAmount] = useState("");
+
   // ── Live orders listener ──────────────────────────────────────
   useEffect(() => {
     if (!currentUser || !currentUser.uid) return;
@@ -234,22 +239,26 @@ function AdminDashboard() {
     }
   }
 
-  // ── Archive Table ───────────────────────────────────────────────
-  async function archiveOrder(orderId) {
+  // ── Archive Table (Settle Order) ──────────────────────────────
+  async function archiveOrder(orderId, paymentSplit = null) {
     setOrders((prev) =>
       prev.map((order) =>
         order.id === orderId
-          ? { ...order, active: false, status: "Completed/Paid" }
+          ? { ...order, active: false, status: "Completed/Paid", paymentSplit }
           : order
       )
     );
 
     try {
-      await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+      const updateData = {
         active: false,
         status: "Completed/Paid",
         updatedAt: serverTimestamp(),
-      });
+      };
+      if (paymentSplit) {
+        updateData.paymentSplit = paymentSplit;
+      }
+      await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), updateData);
     } catch (err) {
       console.error("Failed to archive table:", err);
       alert("Failed to archive table. Please try again.");
@@ -333,6 +342,7 @@ function AdminDashboard() {
 
 
   return (
+    <>
     <div className="flex flex-col xl:flex-row min-h-screen w-full overflow-hidden" style={{ background: "#0B0F19" }}>
       {/* ── Main KDS Content ─────────────────────────────────────── */}
       <div className="flex-1 p-4 md:p-6 min-w-0 w-full overflow-hidden">
@@ -479,10 +489,14 @@ function AdminDashboard() {
                       <td className="py-4 px-4 align-top">
                         {order.active && allServed && (
                           <button
-                            onClick={() => archiveOrder(order.id)}
-                            className="px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-slate-600 to-slate-700 rounded-md hover:opacity-90 transition-all shadow-md"
+                            onClick={() => {
+                              setSettleOrder(order);
+                              setCashAmount("");
+                              setUpiAmount("");
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-md hover:opacity-90 transition-all shadow-md"
                           >
-                            Clear Table
+                            Settle Bill
                           </button>
                         )}
                       </td>
@@ -497,6 +511,97 @@ function AdminDashboard() {
 
 
     </div>
+
+      {/* ── Settlement Modal ─────────────────────────────────────── */}
+      {settleOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md p-6 rounded-3xl shadow-2xl relative" style={{ background: "rgba(15,23,42,0.95)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <button
+              onClick={() => setSettleOrder(null)}
+              className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-bold text-white mb-2">Settle Bill - Table {settleOrder.tableNumber}</h2>
+            <p className="text-sm text-white/50 mb-6">Enter payment breakdown to complete the settlement.</p>
+            
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/5 mb-6 text-center shadow-inner">
+              <p className="text-xs text-white/40 uppercase tracking-wider mb-1">Total Bill Amount</p>
+              <p className="text-3xl font-black text-white">₹{Number(settleOrder.totalAmount || 0).toFixed(2)}</p>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs font-medium text-white/60 mb-1.5">Cash Amount (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={cashAmount}
+                  onChange={(e) => setCashAmount(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-white/60 mb-1.5">UPI / Digital Amount (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={upiAmount}
+                  onChange={(e) => setUpiAmount(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                />
+              </div>
+            </div>
+
+            {(() => {
+              const total = Number(settleOrder.totalAmount || 0);
+              const entered = Number(cashAmount || 0) + Number(upiAmount || 0);
+              const remaining = total - entered;
+              const isComplete = entered >= total && total > 0;
+              
+              return (
+                <>
+                  <div className="flex justify-between items-center mb-6 px-1">
+                    <div>
+                      <p className="text-xs text-white/40">Amount Entered</p>
+                      <p className="text-sm font-semibold text-indigo-400">₹{entered.toFixed(2)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-white/40">Remaining</p>
+                      <p className={`text-sm font-semibold ${remaining > 0 ? "text-red-400" : "text-emerald-400"}`}>
+                        ₹{remaining > 0 ? remaining.toFixed(2) : "0.00"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    disabled={!isComplete}
+                    onClick={async () => {
+                      await archiveOrder(settleOrder.id, {
+                        cash: Number(cashAmount || 0),
+                        upi: Number(upiAmount || 0)
+                      });
+                      setSettleOrder(null);
+                    }}
+                    className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg ${
+                      isComplete 
+                        ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:opacity-90 shadow-emerald-500/25" 
+                        : "bg-white/5 text-white/30 cursor-not-allowed"
+                    }`}
+                  >
+                    {isComplete ? "Complete Settlement" : "Enter Full Amount"}
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

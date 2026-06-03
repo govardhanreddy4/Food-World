@@ -21,6 +21,9 @@ import {
   Bell,
   ChefHat,
   LineChart,
+  Receipt,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -41,7 +44,33 @@ const NAV_ITEMS = [
   { to: "/admin/categories", label: "Category Studio", icon: Tag },
   { to: "/admin/qr",       label: "QR Studio",    icon: QrCode },
   { to: "/admin/sales",    label: "Sales & Analytics", icon: LineChart },
+  { to: "/admin/billing",  label: "Billing History",   icon: Receipt },
 ];
+
+// ─── Web Audio API Notification Chime ───────────────────────────────────────
+function playNotificationChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1200, ctx.currentTime);
+    
+    // Quick attack and release for a crisp "ding"
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+  } catch {
+    // Audio API not supported or blocked by browser — silent fail
+  }
+}
 
 function AdminLayout() {
   const { user, currentUser, logout } = useAuth();
@@ -49,6 +78,22 @@ function AdminLayout() {
   // ── Waiter Call Notifications ─────────────────────────────────
   const [waiterCalls, setWaiterCalls] = useState([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem("fw_admin_muted") === "true");
+  const prevCallIds = useRef(new Set());
+
+  useEffect(() => {
+    localStorage.setItem("fw_admin_muted", isMuted);
+  }, [isMuted]);
+
+  const MuteButton = () => (
+    <button
+      onClick={() => setIsMuted(!isMuted)}
+      className="relative p-2 rounded-xl text-white/50 hover:text-white hover:bg-white/5 transition-all outline-none"
+      title={isMuted ? "Unmute Notifications" : "Mute Notifications"}
+    >
+      {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+    </button>
+  );
 
   const NotificationButton = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -148,6 +193,20 @@ function AdminLayout() {
     );
     const unsub = onSnapshot(q, (snap) => {
       const calls = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      // Detect new incoming calls
+      const currentCallIds = new Set(calls.map((c) => c.id));
+      let hasNewCall = false;
+      currentCallIds.forEach((id) => {
+        if (!prevCallIds.current.has(id)) hasNewCall = true;
+      });
+      
+      // If there's a new call and we had a previous state, and it's not muted, play chime
+      if (hasNewCall && prevCallIds.current.size > 0 && !isMuted) {
+        playNotificationChime();
+      }
+      prevCallIds.current = currentCallIds;
+
       calls.sort((a, b) => {
         const ta = a.timestamp?.toMillis?.() ?? 0;
         const tb = b.timestamp?.toMillis?.() ?? 0;
@@ -231,7 +290,10 @@ function AdminLayout() {
               <p className="text-white/30 text-xs mt-0.5">Admin Panel</p>
             </div>
           </div>
-          <NotificationButton />
+          <div className="flex items-center gap-1">
+            <MuteButton />
+            <NotificationButton />
+          </div>
         </div>
 
         <NavLinks />
@@ -272,7 +334,10 @@ function AdminLayout() {
           <span className="text-white font-bold text-sm">Food World Admin</span>
         </div>
         <div className="flex items-center gap-3">
-          <NotificationButton />
+          <div className="flex items-center gap-1">
+            <MuteButton />
+            <NotificationButton />
+          </div>
           <button
             onClick={() => setMobileMenuOpen((v) => !v)}
             className="text-white/60 hover:text-white p-1"

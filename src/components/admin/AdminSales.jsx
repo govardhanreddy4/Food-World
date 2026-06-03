@@ -14,6 +14,8 @@ function AdminSales() {
   const { currentUser } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [timeFilter, setTimeFilter] = useState("Overall"); // "Overall", "Today", "Specific Date"
+  const [specificDate, setSpecificDate] = useState("");
 
   // ─── Real-time Data Fetching ─────────────────────────────────────────
   useEffect(() => {
@@ -45,32 +47,44 @@ function AdminSales() {
 
   // ─── Metrics Calculation ─────────────────────────────────────────────
   const completedOrders = useMemo(() => {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-
     return orders.filter((o) => {
       const isCompleted = o.active === false || (o.status || "").toLowerCase() === "completed/paid";
       if (!isCompleted) return false;
 
-      // Extract timestamp to determine if order is from today
+      if (timeFilter === "Overall") return true;
+
+      // Extract timestamp
       let orderTime = 0;
-      if (o.updatedAt && typeof o.updatedAt.toDate === "function") {
+      if (o.updatedAt?.toMillis) {
+        orderTime = o.updatedAt.toMillis();
+      } else if (o.updatedAt?.toDate) {
         orderTime = o.updatedAt.toDate().getTime();
-      } else if (o.createdAt && typeof o.createdAt.toDate === "function") {
+      } else if (o.createdAt?.toMillis) {
+        orderTime = o.createdAt.toMillis();
+      } else if (o.createdAt?.toDate) {
         orderTime = o.createdAt.toDate().getTime();
       } else if (o.updatedAt) {
         orderTime = new Date(o.updatedAt).getTime();
       }
+      
+      if (orderTime === 0) return false;
 
-      // Filter: only keep if the order time is strictly >= midnight today
-      if (orderTime > 0) {
+      if (timeFilter === "Today") {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         return orderTime >= startOfToday;
       }
 
-      // Fallback if no timestamp exists
-      return false;
+      if (timeFilter === "Specific Date" && specificDate) {
+        const [year, month, day] = specificDate.split("-").map(Number);
+        const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
+        const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
+        return orderTime >= startOfDay && orderTime <= endOfDay;
+      }
+
+      return true; // Fallback if no date selected
     });
-  }, [orders]);
+  }, [orders, timeFilter, specificDate]);
 
   const metrics = useMemo(() => {
     let totalRevenue = 0;
@@ -126,7 +140,7 @@ function AdminSales() {
   return (
     <div className="min-h-screen p-6" style={{ background: "#0B0F19" }}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-center gap-3 mb-6">
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
           style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
@@ -136,6 +150,39 @@ function AdminSales() {
         <div>
           <h1 className="text-white text-2xl font-bold tracking-tight">Sales Performance</h1>
           <p className="text-white/40 text-sm">Real-time revenue & insights from completed orders</p>
+        </div>
+      </div>
+
+      {/* Time Filters */}
+      <div className="flex flex-col md:flex-row items-center gap-2 mb-8 p-1.5 rounded-2xl w-fit" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+        <button
+          onClick={() => setTimeFilter("Overall")}
+          className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${timeFilter === "Overall" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
+        >
+          Overall
+        </button>
+        <button
+          onClick={() => setTimeFilter("Today")}
+          className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${timeFilter === "Today" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
+        >
+          Today
+        </button>
+        <div className="relative flex items-center">
+          <button
+            onClick={() => setTimeFilter("Specific Date")}
+            className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${timeFilter === "Specific Date" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
+          >
+            Specific Date
+          </button>
+          {timeFilter === "Specific Date" && (
+            <input 
+              type="date"
+              value={specificDate}
+              onChange={(e) => setSpecificDate(e.target.value)}
+              className="ml-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-emerald-500/50"
+              style={{ colorScheme: "dark" }}
+            />
+          )}
         </div>
       </div>
 
