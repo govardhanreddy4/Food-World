@@ -22,41 +22,11 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  getDocs,
-  writeBatch,
   doc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
-import { Plus, Pencil, Trash2, Check, X, Tag, GripVertical, Database, CheckCircle2 } from "lucide-react";
-
-// ─── Canonical seed payload — 22 categories in display order ─────────────────
-// This is the single source of truth for the restaurant's menu taxonomy.
-// Labels use exact capitalisation as specified in the product requirement.
-const SEED_CATEGORIES = [
-  { label: "Water",                displayOrder: 1  },
-  { label: "Soups",                displayOrder: 2  },
-  { label: "Salads",               displayOrder: 3  },
-  { label: "Appetizers",           displayOrder: 4  },
-  { label: "BBQ's",                displayOrder: 5  },
-  { label: "Rice Bowls",           displayOrder: 6  },
-  { label: "Pasta",                displayOrder: 7  },
-  { label: "Burger",               displayOrder: 8  },
-  { label: "Pizza",                displayOrder: 9  },
-  { label: "Sandwich",             displayOrder: 10 },
-  { label: "Sides",                displayOrder: 11 },
-  { label: "Dumplings",            displayOrder: 12 },
-  { label: "Cold Coffee",          displayOrder: 13 },
-  { label: "Hot Coffee",           displayOrder: 14 },
-  { label: "Mocktails",            displayOrder: 15 },
-  { label: "Thick Shakes",         displayOrder: 16 },
-  { label: "Sundaes",              displayOrder: 17 },
-  { label: "Desserts & Pastries",  displayOrder: 18 },
-  { label: "Brownie",              displayOrder: 19 },
-  { label: "Cookies & Macarons",   displayOrder: 20 },
-  { label: "Cakes",                displayOrder: 21 },
-  { label: "Pure Chocolates",      displayOrder: 22 },
-];
+import { Plus, Pencil, Trash2, Check, X, Tag } from "lucide-react";
 
 // ─── Shared dark-glass card style ───────────────────────────────────────────
 const glassCard = {
@@ -76,9 +46,6 @@ function CategoryStudio() {
   const [editOrder, setEditOrder]     = useState("");
   const [deletingId, setDeletingId]   = useState(null);
   const [error, setError]             = useState("");
-  // Seeder state
-  const [seeding, setSeeding]         = useState(false);
-  const [seedResult, setSeedResult]   = useState(null); // { added, skipped }
 
   // ── Live categories listener ──────────────────────────────────
   useEffect(() => {
@@ -116,64 +83,7 @@ function CategoryStudio() {
     }
   }
 
-  // ── Seed all 22 categories (idempotent writeBatch) ────────────
-  /**
-   * seedCategories
-   * --------------
-   * Reads all existing labels from Firestore first, then uses a single
-   * writeBatch to add only the categories that don't already exist.
-   * Safe to run multiple times — never creates duplicate labels.
-   *
-   * Firestore writeBatch is limited to 500 writes per call. Our 22-item
-   * payload is well within this limit.
-   */
-  async function seedCategories() {
-    setSeeding(true);
-    setSeedResult(null);
-    setError("");
-    try {
-      // Step 1: Fetch all existing category labels from Firestore
-      const existingSnap = await getDocs(
-        collection(db, COLLECTIONS.CATEGORIES)
-      );
-      const existingLabels = new Set(
-        existingSnap.docs.map((d) => d.data().label)
-      );
 
-      // Step 2: Filter out any categories already in Firestore
-      const toAdd = SEED_CATEGORIES.filter(
-        (cat) => !existingLabels.has(cat.label)
-      );
-
-      const skipped = SEED_CATEGORIES.length - toAdd.length;
-
-      if (toAdd.length === 0) {
-        // All 22 categories already exist — nothing to write
-        setSeedResult({ added: 0, skipped });
-        return;
-      }
-
-      // Step 3: Batch-write only the missing categories
-      const batch = writeBatch(db);
-      const colRef = collection(db, COLLECTIONS.CATEGORIES);
-      toAdd.forEach((cat) => {
-        const newDocRef = doc(colRef); // auto-generated ID
-        batch.set(newDocRef, {
-          label:        cat.label,
-          displayOrder: cat.displayOrder,
-          createdAt:    serverTimestamp(),
-        });
-      });
-
-      await batch.commit();
-      setSeedResult({ added: toAdd.length, skipped });
-    } catch (err) {
-      console.error("[CategoryStudio] Seed failed:", err);
-      setError("Seed failed: " + (err.message || "Unknown error."));
-    } finally {
-      setSeeding(false);
-    }
-  }
 
   // ── Start inline edit ────────────────────────────────────────
   function startEdit(cat) {
@@ -226,66 +136,7 @@ function CategoryStudio() {
             </p>
           </div>
         </div>
-
-        {/* ── Seed Button ───────────────────────────────────────── */}
-        <button
-          id="btn-seed-categories"
-          onClick={seedCategories}
-          disabled={seeding}
-          title="Batch-write all 22 predefined categories (skips duplicates)"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 shrink-0 hover:opacity-90"
-          style={{
-            background: "rgba(16,185,129,0.15)",
-            border: "1px solid rgba(16,185,129,0.35)",
-            color: "#10b981",
-          }}
-        >
-          <Database size={15} />
-          {seeding ? "Seeding…" : "Seed All 22"}
-        </button>
       </div>
-
-      {/* ── Seed Result Banner ────────────────────────────────────── */}
-      {seedResult !== null && (
-        <div
-          className="flex items-start gap-3 p-4 rounded-2xl mb-5"
-          style={{
-            background: seedResult.added > 0
-              ? "rgba(16,185,129,0.10)"
-              : "rgba(99,102,241,0.08)",
-            border: seedResult.added > 0
-              ? "1px solid rgba(16,185,129,0.25)"
-              : "1px solid rgba(99,102,241,0.20)",
-          }}
-        >
-          <CheckCircle2
-            size={18}
-            className={seedResult.added > 0 ? "text-emerald-400 shrink-0 mt-0.5" : "text-indigo-400 shrink-0 mt-0.5"}
-          />
-          <div className="text-sm">
-            {seedResult.added > 0 ? (
-              <p className="text-emerald-300 font-semibold">
-                ✅ {seedResult.added} categor{seedResult.added !== 1 ? "ies" : "y"} added to Firestore.
-              </p>
-            ) : (
-              <p className="text-indigo-300 font-semibold">
-                ℹ️ All 22 categories already exist — nothing was written.
-              </p>
-            )}
-            {seedResult.skipped > 0 && (
-              <p className="text-white/40 text-xs mt-0.5">
-                {seedResult.skipped} duplicate label{seedResult.skipped !== 1 ? "s" : ""} skipped.
-              </p>
-            )}
-          </div>
-          <button
-            onClick={() => setSeedResult(null)}
-            className="ml-auto text-white/30 hover:text-white/70 transition-colors"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
 
       {/* Error */}
       {error && (

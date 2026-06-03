@@ -87,7 +87,7 @@ export const storage = getStorage(app);
 // ─── Firestore Collection Name Registry ──────────────────────────────────────
 // Single source of truth for all collection names — prevents silent typos.
 export const COLLECTIONS = {
-  MENU_ITEMS:   "menuItems",    // Restaurant food catalog
+  MENU_ITEMS:   "menu_items",    // Restaurant food catalog
   CATEGORIES:   "categories",   // Dynamic filter category labels
   ORDERS:       "orders",        // Active and historical table order sessions
   WAITER_CALLS: "waiterCalls",  // Real-time staff alert pings from customers

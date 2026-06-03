@@ -19,6 +19,7 @@ import {
   collection,
   query,
   orderBy,
+  where,
   onSnapshot,
   addDoc,
   updateDoc,
@@ -27,6 +28,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
+import { useAuth } from "../../context/AuthContext";
 import {
   Plus,
   Pencil,
@@ -560,6 +562,7 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
 
 // ─── Main MenuManager Component ──────────────────────────────────────────────
 function MenuManager() {
+  const { currentUser } = useAuth();
   const [items, setItems]           = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -570,13 +573,18 @@ function MenuManager() {
 
   // ── Live menu items listener ──────────────────────────────────
   useEffect(() => {
-    const q = query(collection(db, COLLECTIONS.MENU_ITEMS), orderBy("name", "asc"));
+    if (!currentUser) return;
+    const q = query(
+      collection(db, COLLECTIONS.MENU_ITEMS),
+      where("userId", "==", currentUser.uid),
+      orderBy("name", "asc")
+    );
     const unsub = onSnapshot(q, (snap) => {
       setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [currentUser]);
 
   // ── Live categories listener ──────────────────────────────────
   useEffect(() => {
@@ -601,6 +609,7 @@ function MenuManager() {
     } else {
       await addDoc(collection(db, COLLECTIONS.MENU_ITEMS), {
         ...formData,
+        userId: currentUser.uid,
         createdAt: serverTimestamp(),
       });
     }

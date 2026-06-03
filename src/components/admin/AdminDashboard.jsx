@@ -27,6 +27,7 @@ import {
 } from "firebase/firestore";
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { useElapsedTimer } from "../../hooks/useElapsedTimer";
+import { useAuth } from "../../context/AuthContext";
 import {
   Bell,
   CheckCircle,
@@ -315,6 +316,7 @@ function WaiterCallCard({ call, onDismiss }) {
 
 // ─── Main AdminDashboard ──────────────────────────────────────────────────────
 function AdminDashboard() {
+  const { currentUser } = useAuth();
   const [orders, setOrders]           = useState([]);
   const [waiterCalls, setWaiterCalls] = useState([]);
   const [statusFilter, setStatusFilter] = useState("Active");

@@ -53,10 +53,10 @@ service cloud.firestore {
         && data.requestType is string;
     }
 
-    // ── menuItems Collection ────────────────────────────────────
+    // ── menu_items Collection ───────────────────────────────────
     // Customers need public read to browse the menu.
     // Only signed-in admins can create, update, or delete items.
-    match /menuItems/{itemId} {
+    match /menu_items/{itemId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }

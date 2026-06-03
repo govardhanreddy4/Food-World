@@ -111,6 +111,7 @@ export function AuthProvider({ children }) {
   // ── Context Value ───────────────────────────────────────────────────────
   const value = {
     user,
+    currentUser: user,   // Alias for multi-tenancy UID isolation
     loading,
     isAdmin: !!user,      // Convenience boolean alias
     login,
