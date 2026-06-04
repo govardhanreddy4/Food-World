@@ -89,14 +89,23 @@ function AdminSales() {
   const metrics = useMemo(() => {
     let totalRevenue = 0;
     let totalOrders = completedOrders.length;
+    let totalUnitsSold = 0;
 
     completedOrders.forEach((order) => {
       totalRevenue += Number(order.totalAmount || 0);
+
+      const batches = order.orderBatches || [];
+      batches.forEach((batch) => {
+        const items = batch.items || [];
+        items.forEach((item) => {
+          totalUnitsSold += Number(item.quantity) || 1;
+        });
+      });
     });
 
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-    return { totalRevenue, totalOrders, averageOrderValue };
+    return { totalRevenue, totalOrders, averageOrderValue, totalUnitsSold };
   }, [completedOrders]);
 
   // ─── Top-Selling Items Engine ────────────────────────────────────────
@@ -138,39 +147,39 @@ function AdminSales() {
   };
 
   return (
-    <div className="min-h-screen p-6" style={{ background: "#0B0F19" }}>
+    <div className="min-h-screen p-4 md:p-6" style={{ background: "#0B0F19" }}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4 md:mb-6">
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
+          className="w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
           style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
         >
           <TrendingUp size={20} className="text-white" />
         </div>
         <div>
-          <h1 className="text-white text-2xl font-bold tracking-tight">Sales Performance</h1>
-          <p className="text-white/40 text-sm">Real-time revenue & insights from completed orders</p>
+          <h1 className="text-white text-xl md:text-2xl font-bold tracking-tight">Sales Performance</h1>
+          <p className="text-white/40 text-[11px] md:text-sm leading-tight">Real-time revenue & insights from completed orders</p>
         </div>
       </div>
 
       {/* Time Filters */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-8 p-1.5 rounded-2xl w-full sm:w-fit" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 md:gap-2 mb-5 md:mb-8 p-1 md:p-1.5 rounded-2xl w-full sm:w-fit" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
         <button
           onClick={() => setTimeFilter("Overall")}
-          className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${timeFilter === "Overall" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
+          className={`px-3 py-1.5 md:px-5 md:py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${timeFilter === "Overall" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
         >
           Overall
         </button>
         <button
           onClick={() => setTimeFilter("Today")}
-          className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${timeFilter === "Today" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
+          className={`px-3 py-1.5 md:px-5 md:py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${timeFilter === "Today" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
         >
           Today
         </button>
         <div className="relative flex items-center">
           <button
             onClick={() => setTimeFilter("Specific Date")}
-            className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${timeFilter === "Specific Date" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
+            className={`px-3 py-1.5 md:px-5 md:py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${timeFilter === "Specific Date" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
           >
             Specific Date
           </button>
@@ -179,7 +188,7 @@ function AdminSales() {
               type="date"
               value={specificDate}
               onChange={(e) => setSpecificDate(e.target.value)}
-              className="ml-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-emerald-500/50"
+              className="ml-2 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 md:px-3 md:py-1.5 text-white text-xs md:text-sm outline-none focus:border-emerald-500/50"
               style={{ colorScheme: "dark" }}
             />
           )}
@@ -206,43 +215,53 @@ function AdminSales() {
       ) : (
         <div className="max-w-6xl">
           {/* Top Metrics Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
-            <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden group" style={glassCard}>
-              <div className="flex items-start justify-between mb-3 md:mb-4">
-                <p className="text-white/50 text-xs md:text-sm font-medium uppercase tracking-wider">Total Revenue</p>
-                <div className="p-1.5 md:p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-                  <Banknote size={18} />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-5 md:mb-8">
+            <div className="rounded-2xl p-3 md:p-6 relative overflow-hidden group" style={glassCard}>
+              <div className="flex items-start justify-between mb-2 md:mb-4">
+                <p className="text-white/50 text-[10px] md:text-sm font-medium uppercase tracking-wider">Total Revenue</p>
+                <div className="p-1 md:p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <Banknote size={16} />
                 </div>
               </div>
-              <h2 className="text-white text-2xl md:text-3xl font-bold">₹{metrics.totalRevenue.toFixed(0)}</h2>
+              <h2 className="text-white text-xl md:text-3xl font-black md:font-bold">₹{metrics.totalRevenue.toFixed(0)}</h2>
             </div>
 
-            <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
-              <div className="flex items-start justify-between mb-3 md:mb-4">
-                <p className="text-white/50 text-xs md:text-sm font-medium uppercase tracking-wider">Total Orders</p>
-                <div className="p-1.5 md:p-2 rounded-lg bg-blue-500/10 text-blue-400">
-                  <Receipt size={18} />
+            <div className="rounded-2xl p-3 md:p-5" style={glassCard}>
+              <div className="flex items-start justify-between mb-2 md:mb-4">
+                <p className="text-white/50 text-[10px] md:text-sm font-medium uppercase tracking-wider">Total Orders</p>
+                <div className="p-1 md:p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                  <Receipt size={16} />
                 </div>
               </div>
-              <h2 className="text-white text-2xl md:text-3xl font-bold">{metrics.totalOrders}</h2>
+              <h2 className="text-white text-xl md:text-3xl font-black md:font-bold">{metrics.totalOrders}</h2>
             </div>
 
-            <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
-              <div className="flex items-start justify-between mb-3 md:mb-4">
-                <p className="text-white/50 text-xs md:text-sm font-medium uppercase tracking-wider">Average Order Value</p>
-                <div className="p-1.5 md:p-2 rounded-lg bg-purple-500/10 text-purple-400">
-                  <TrendingUp size={18} />
+            <div className="rounded-2xl p-3 md:p-5" style={glassCard}>
+              <div className="flex items-start justify-between mb-2 md:mb-4">
+                <p className="text-white/50 text-[10px] md:text-sm font-medium uppercase tracking-wider leading-tight">Total<br className="md:hidden"/> Units</p>
+                <div className="p-1 md:p-2 rounded-lg bg-orange-500/10 text-orange-400">
+                  <UtensilsCrossed size={16} />
                 </div>
               </div>
-              <h2 className="text-white text-2xl md:text-3xl font-bold">₹{metrics.averageOrderValue.toFixed(0)}</h2>
+              <h2 className="text-white text-xl md:text-3xl font-black md:font-bold">{metrics.totalUnitsSold}</h2>
+            </div>
+
+            <div className="rounded-2xl p-3 md:p-5" style={glassCard}>
+              <div className="flex items-start justify-between mb-2 md:mb-4">
+                <p className="text-white/50 text-[10px] md:text-sm font-medium uppercase tracking-wider leading-tight">Average<br className="md:hidden"/> Value</p>
+                <div className="p-1 md:p-2 rounded-lg bg-purple-500/10 text-purple-400">
+                  <TrendingUp size={16} />
+                </div>
+              </div>
+              <h2 className="text-white text-xl md:text-3xl font-black md:font-bold">₹{metrics.averageOrderValue.toFixed(0)}</h2>
             </div>
           </div>
 
           {/* Top-Selling Items */}
           <div className="rounded-2xl overflow-hidden" style={glassCard}>
-            <div className="p-4 md:p-5 border-b border-white/5 bg-white/[0.02] flex items-center gap-3">
-              <Trophy size={18} className="text-amber-400" />
-              <h3 className="text-white font-semibold text-sm md:text-base">Top-Selling Items</h3>
+            <div className="p-3 md:p-5 border-b border-white/5 bg-white/[0.02] flex items-center gap-2 md:gap-3">
+              <Trophy size={16} md:size={18} className="text-amber-400" />
+              <h3 className="text-white font-semibold text-xs md:text-base">Top-Selling Items</h3>
             </div>
             
             {topItems.length === 0 ? (
@@ -292,12 +311,12 @@ function AdminSales() {
               </div>
 
               {/* Mobile Card View */}
-              <div className="sm:hidden flex flex-col gap-3 p-3">
+              <div className="sm:hidden flex flex-col gap-2 p-2 md:p-3">
                 {topItems.map((item, idx) => (
-                  <div key={item.name} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3">
+                  <div key={item.name} className="bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col gap-2 md:gap-3">
                     {/* Top: Rank & Item Name */}
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                    <div className="flex items-center gap-1.5 md:gap-2">
+                      <span className={`inline-flex items-center justify-center w-5 h-5 md:w-6 md:h-6 rounded-full text-[10px] md:text-xs font-bold ${
                         idx === 0 ? "bg-amber-400/20 text-amber-400" :
                         idx === 1 ? "bg-slate-300/20 text-slate-300" :
                         idx === 2 ? "bg-orange-400/20 text-orange-400" :
@@ -305,17 +324,17 @@ function AdminSales() {
                       }`}>
                         {idx + 1}
                       </span>
-                      <span className="font-bold text-white text-base">{item.name}</span>
+                      <span className="font-bold text-white text-sm md:text-base">{item.name}</span>
                     </div>
                     {/* Bottom: Dual-column split */}
-                    <div className="flex justify-between items-center bg-black/20 rounded-lg p-3">
+                    <div className="flex justify-between items-center bg-black/20 rounded-lg p-2 md:p-3">
                       <div className="flex flex-col">
-                        <span className="text-[10px] uppercase text-white/40 tracking-wider mb-0.5">Units Sold</span>
-                        <span className="font-mono text-white/80 text-base font-semibold">{item.count}</span>
+                        <span className="text-[9px] md:text-[10px] uppercase text-white/40 tracking-wider mb-0.5">Units Sold</span>
+                        <span className="font-mono text-white/80 text-sm md:text-base font-semibold">{item.count}</span>
                       </div>
                       <div className="flex flex-col items-end">
-                        <span className="text-[10px] uppercase text-white/40 tracking-wider mb-0.5">Total Revenue</span>
-                        <span className="font-mono text-white font-bold text-emerald-400 text-base">₹{item.revenue.toFixed(0)}</span>
+                        <span className="text-[9px] md:text-[10px] uppercase text-white/40 tracking-wider mb-0.5">Total Revenue</span>
+                        <span className="font-mono text-white font-bold text-emerald-400 text-sm md:text-base">₹{item.revenue.toFixed(0)}</span>
                       </div>
                     </div>
                   </div>
