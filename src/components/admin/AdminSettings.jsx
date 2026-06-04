@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { db, storage, COLLECTIONS } from "../../firebase/firebaseConfig";
+import { compressAudio } from "../../utils/audioCompression";
 import { useAuth } from "../../context/AuthContext";
 import {
   Settings as SettingsIcon,
@@ -10,23 +10,36 @@ import {
   Upload,
   Play,
   Square,
-  Volume2
+  Volume2,
+  AlertTriangle,
+  Loader2,
+  CheckCircle2
 } from "lucide-react";
+
+const defaultSettings = {
+  orderAlert: { audioUrl: "", duration: 15 },
+  customerAlert: { audioUrl: "", duration: 15 }
+};
 
 function AdminSettings() {
   const { currentUser } = useAuth();
   
-  const [settings, setSettings] = useState({
-    orderAlert: { audioUrl: "", duration: 15 },
-    customerAlert: { audioUrl: "", duration: 15 }
-  });
-  
+  const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
+  
+  const orderFileInputRef = useRef(null);
+  const customerFileInputRef = useRef(null);
+
   const [uploadingOrder, setUploadingOrder] = useState(false);
   const [uploadingCustomer, setUploadingCustomer] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const [playingOrder, setPlayingOrder] = useState(false);
   const [playingCustomer, setPlayingCustomer] = useState(false);
+  
+  const [uploadSuccessOrder, setUploadSuccessOrder] = useState(false);
+  const [uploadSuccessCustomer, setUploadSuccessCustomer] = useState(false);
+
   const audioRefOrder = useRef(null);
   const audioRefCustomer = useRef(null);
 
@@ -60,46 +73,103 @@ function AdminSettings() {
     }
   };
 
-  const updateField = (type, field, value) => {
-    const updated = {
-      ...settings,
-      [type]: { ...settings[type], [field]: value }
-    };
-    setSettings(updated);
-    saveSettings(updated);
+  const updateField = async (type, field, value) => {
+    try {
+      const updated = {
+        ...settings,
+        [type]: { ...settings[type], [field]: value }
+      };
+      setSettings(updated);
+      await setDoc(doc(db, COLLECTIONS.SETTINGS, currentUser.uid), updated, { merge: true });
+    } catch (error) {
+      console.error("Failed to update settings:", error);
+    }
+  };
+
+  const triggerOrderUpload = () => {
+    try {
+      setUploadError("");
+      if (orderFileInputRef.current) {
+        orderFileInputRef.current.click();
+      }
+    } catch (err) {
+      console.error("Failed to open file picker:", err);
+      setUploadError("Could not open file selector. Please check browser permissions.");
+    }
+  };
+
+  const triggerCustomerUpload = () => {
+    try {
+      setUploadError("");
+      if (customerFileInputRef.current) {
+        customerFileInputRef.current.click();
+      }
+    } catch (err) {
+      console.error("Failed to open file picker:", err);
+      setUploadError("Could not open file selector. Please check browser permissions.");
+    }
   };
 
   // ─── File Upload Logic ──────────────────────────────────────
   const handleAudioUpload = async (e, type) => {
     const file = e.target.files?.[0];
-    if (!file || !currentUser?.uid) return;
+    if (!file) return;
+
+    setUploadError(""); // clear previous errors
+
+    // Strict 10MB limit
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError("File too large. Please upload an alert audio file under 10MB.");
+      e.target.value = ""; // clear the input
+      return;
+    }
 
     if (type === "orderAlert") setUploadingOrder(true);
     else setUploadingCustomer(true);
 
+    // 1. Clear Memory First
+    const storageKey = type === "orderAlert" ? "custom_order_sound" : "custom_assistance_sound";
+    localStorage.removeItem(storageKey);
+
     try {
-      const ext = file.name.split(".").pop();
-      const storageRef = ref(storage, `alert_sounds/${currentUser.uid}/${type}_${Date.now()}.${ext}`);
+      // 2. Optimize Audio Compression
+      const compressedBlob = await compressAudio(file);
       
-      const uploadTask = uploadBytesResumable(storageRef, file);
-      
-      uploadTask.on(
-        "state_changed",
-        null,
-        (error) => {
-          console.error("Upload error:", error);
-          if (type === "orderAlert") setUploadingOrder(false);
-          else setUploadingCustomer(false);
-        },
-        async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          updateField(type, "audioUrl", downloadURL);
-          if (type === "orderAlert") setUploadingOrder(false);
-          else setUploadingCustomer(false);
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result;
+        
+        try {
+          localStorage.setItem(storageKey, base64String);
+          updateField(type, "audioUrl", "local");
+          
+          if (type === "orderAlert") {
+            setUploadSuccessOrder(true);
+            setTimeout(() => setUploadSuccessOrder(false), 2000);
+          } else {
+            setUploadSuccessCustomer(true);
+            setTimeout(() => setUploadSuccessCustomer(false), 2000);
+          }
+        } catch (error) {
+          console.error("LocalStorage save error:", error);
+          setUploadError("This audio clip is too heavy for browser memory. Please try a shorter notification sound or chime clip.");
         }
-      );
+        
+        if (type === "orderAlert") setUploadingOrder(false);
+        else setUploadingCustomer(false);
+      };
+      
+      reader.onerror = () => {
+        console.error("FileReader error");
+        setUploadError("This audio clip is too heavy for browser memory. Please try a shorter notification sound or chime clip.");
+        if (type === "orderAlert") setUploadingOrder(false);
+        else setUploadingCustomer(false);
+      };
+
+      reader.readAsDataURL(compressedBlob);
     } catch (err) {
-      console.error("Upload error:", err);
+      console.error("Upload/Compression error:", err);
+      setUploadError("This audio clip is too heavy for browser memory. Please try a shorter notification sound or chime clip.");
       if (type === "orderAlert") setUploadingOrder(false);
       else setUploadingCustomer(false);
     }
@@ -124,7 +194,7 @@ function AdminSettings() {
     } catch {}
   };
 
-  const playTestSound = (type) => {
+  const playTestSound = async (type) => {
     const config = settings[type];
     const isPlayingState = type === "orderAlert" ? playingOrder : playingCustomer;
     const setPlayingState = type === "orderAlert" ? setPlayingOrder : setPlayingCustomer;
@@ -139,8 +209,11 @@ function AdminSettings() {
       return;
     }
 
-    if (config.audioUrl) {
-      const audio = new Audio(config.audioUrl);
+    const storageKey = type === "orderAlert" ? "custom_order_sound" : "custom_assistance_sound";
+    const localAudioBase64 = localStorage.getItem(storageKey);
+
+    if (localAudioBase64) {
+      const audio = new Audio(localAudioBase64);
       ref.current = audio;
       audio.loop = true;
       audio.play().catch(console.error);
@@ -198,6 +271,13 @@ function AdminSettings() {
         </div>
       </div>
 
+      {uploadError && (
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-medium text-sm flex items-center gap-3">
+          <AlertTriangle size={18} />
+          {uploadError}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* New Order Alerts */}
@@ -233,19 +313,34 @@ function AdminSettings() {
                 Custom Alert Tone
               </label>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <label className={`cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all ${
-                  uploadingOrder ? "bg-white/5 text-white/40" : "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20"
-                }`}>
-                  <Upload size={16} />
-                  {uploadingOrder ? "Uploading..." : settings.orderAlert.audioUrl ? "Replace Tone" : "Upload Custom Alert Tone"}
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    className="hidden"
-                    onChange={(e) => handleAudioUpload(e, "orderAlert")}
-                    disabled={uploadingOrder}
-                  />
-                </label>
+                <button
+                  onClick={triggerOrderUpload}
+                  disabled={uploadingOrder || uploadSuccessOrder}
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    uploadingOrder
+                      ? "bg-white/5 text-white/40"
+                      : uploadSuccessOrder
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-success-flash"
+                      : "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20"
+                  }`}
+                >
+                  {uploadingOrder ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : uploadSuccessOrder ? (
+                    <CheckCircle2 size={16} />
+                  ) : (
+                    <Upload size={16} />
+                  )}
+                  {uploadingOrder ? "Uploading..." : uploadSuccessOrder ? "Saved!" : settings.orderAlert.audioUrl ? "Replace Tone" : "Upload Custom Alert Tone"}
+                </button>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  ref={orderFileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleAudioUpload(e, "orderAlert")}
+                  disabled={uploadingOrder}
+                />
                 
                 <button
                   onClick={() => playTestSound("orderAlert")}
@@ -304,19 +399,34 @@ function AdminSettings() {
                 Custom Alert Tone
               </label>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <label className={`cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all ${
-                  uploadingCustomer ? "bg-white/5 text-white/40" : "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20"
-                }`}>
-                  <Upload size={16} />
-                  {uploadingCustomer ? "Uploading..." : settings.customerAlert.audioUrl ? "Replace Tone" : "Upload Custom Alert Tone"}
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    className="hidden"
-                    onChange={(e) => handleAudioUpload(e, "customerAlert")}
-                    disabled={uploadingCustomer}
-                  />
-                </label>
+                <button
+                  onClick={triggerCustomerUpload}
+                  disabled={uploadingCustomer || uploadSuccessCustomer}
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    uploadingCustomer
+                      ? "bg-white/5 text-white/40"
+                      : uploadSuccessCustomer
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-success-flash"
+                      : "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20"
+                  }`}
+                >
+                  {uploadingCustomer ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : uploadSuccessCustomer ? (
+                    <CheckCircle2 size={16} />
+                  ) : (
+                    <Upload size={16} />
+                  )}
+                  {uploadingCustomer ? "Uploading..." : uploadSuccessCustomer ? "Saved!" : settings.customerAlert.audioUrl ? "Replace Tone" : "Upload Custom Alert Tone"}
+                </button>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  ref={customerFileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleAudioUpload(e, "customerAlert")}
+                  disabled={uploadingCustomer}
+                />
                 
                 <button
                   onClick={() => playTestSound("customerAlert")}

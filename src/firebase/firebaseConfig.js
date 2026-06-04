@@ -20,6 +20,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  memoryLocalCache,
 } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getStorage }                 from "firebase/storage";
@@ -59,11 +60,20 @@ export { analytics };
  * persistentMultipleTabManager() allows multiple browser tabs (e.g. admin
  * dashboard open in two windows) to share the offline cache safely.
  */
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager(),
-  }),
-});
+let dbInstance;
+try {
+  dbInstance = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
+} catch (error) {
+  console.warn("Firestore persistent cache initialization failed (QuotaExceeded). Falling back to memory cache.", error);
+  dbInstance = initializeFirestore(app, {
+    localCache: memoryLocalCache(),
+  });
+}
+export const db = dbInstance;
 
 // ─── Firebase Authentication ─────────────────────────────────────────────────
 export const auth = getAuth(app);

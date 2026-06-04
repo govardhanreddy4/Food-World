@@ -251,8 +251,10 @@ function AdminSales() {
                 No items have been ordered yet.
               </div>
             ) : (
-              <div className="overflow-x-auto scrollbar-hide">
-                <table className="w-full text-left min-w-[600px]">
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden sm:block w-full max-w-full overflow-x-auto scrollbar-hide">
+                  <table className="w-full text-left min-w-[800px]">
                   <thead>
                     <tr className="text-white/40 text-xs uppercase tracking-wider bg-white/5">
                       <th className="py-3 px-5 font-medium">Rank</th>
@@ -288,6 +290,38 @@ function AdminSales() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Card View */}
+              <div className="sm:hidden flex flex-col gap-4 p-4">
+                {topItems.map((item, idx) => (
+                  <div key={item.name} className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col gap-4">
+                    {/* Top: Rank & Item Name */}
+                    <div className="flex items-center gap-3">
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                        idx === 0 ? "bg-amber-400/20 text-amber-400" :
+                        idx === 1 ? "bg-slate-300/20 text-slate-300" :
+                        idx === 2 ? "bg-orange-400/20 text-orange-400" :
+                        "bg-white/10 text-white/40"
+                      }`}>
+                        {idx + 1}
+                      </span>
+                      <span className="font-bold text-white text-lg">{item.name}</span>
+                    </div>
+                    {/* Bottom: Dual-column split */}
+                    <div className="flex justify-between items-center bg-black/20 rounded-lg p-4">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase text-white/40 tracking-wider mb-1">Units Sold</span>
+                        <span className="font-mono text-white/80 text-lg font-semibold">{item.count}</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] uppercase text-white/40 tracking-wider mb-1">Total Revenue</span>
+                        <span className="font-mono text-white font-bold text-emerald-400 text-lg">₹{item.revenue.toFixed(0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
             )}
           </div>
         </div>

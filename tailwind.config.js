@@ -1,5 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   // ── Content Paths ─────────────────────────────────────────────────────────
   // Tailwind scans these files to purge unused classes in production builds.
   content: [

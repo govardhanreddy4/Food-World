@@ -219,8 +219,10 @@ function AdminBilling() {
           <p className="text-slate-400 mb-6">There are no completed orders for the selected date.</p>
         </div>
       ) : (
-        <div className="w-full overflow-x-auto rounded-2xl border border-white/10 scrollbar-hide shadow-2xl" style={{ background: "rgba(15,23,42,0.4)", backdropFilter: "blur(16px)" }}>
-          <table className="w-full min-w-[800px] text-left border-collapse">
+        <>
+          {/* Desktop Table View */}
+          <div className="hidden md:block w-full max-w-full overflow-x-auto rounded-2xl border border-white/10 scrollbar-hide shadow-2xl" style={{ background: "rgba(15,23,42,0.4)", backdropFilter: "blur(16px)" }}>
+            <table className="w-full min-w-[800px] text-left border-collapse">
             <thead>
               <tr className="border-b border-white/10 text-white/40 text-xs uppercase tracking-wider bg-white/5">
                 <th className="py-4 px-6 font-semibold">Table</th>
@@ -256,6 +258,52 @@ function AdminBilling() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden flex flex-col gap-4">
+          {filteredOrders.map((order) => {
+            const splits = getCashUpi(order);
+            return (
+              <div key={order.id} className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden">
+                {/* Top: Table Name + Time */}
+                <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                  <span className="font-bold text-white text-lg">Table {order.tableNumber}</span>
+                  <span className="text-sm text-white/50">{formatTime(order)}</span>
+                </div>
+                
+                {/* Middle: Cash, UPI, Total Bill */}
+                <div className="grid grid-cols-3 gap-2 text-center bg-black/20 rounded-lg p-3">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase text-white/40 tracking-wider mb-1">Cash</span>
+                    <span className="font-mono text-emerald-400 font-medium">
+                      {splits.cash > 0 ? `₹${splits.cash.toFixed(2)}` : "-"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col border-x border-white/5">
+                    <span className="text-[10px] uppercase text-white/40 tracking-wider mb-1">UPI</span>
+                    <span className="font-mono text-indigo-400 font-medium">
+                      {splits.upi > 0 ? `₹${splits.upi.toFixed(2)}` : "-"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase text-white/40 tracking-wider mb-1">Total</span>
+                    <span className="font-mono text-white font-bold">
+                      ₹{Number(order.totalAmount || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom Right: Settled Badge */}
+                <div className="flex justify-end mt-1">
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Settled ✓
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>
       )}
     </div>
   );

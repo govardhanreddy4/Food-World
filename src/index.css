@@ -65,6 +65,12 @@
     from { opacity: 0; transform: translateY(12px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+
+  @keyframes success-flash {
+    0%   { transform: scale(0.96); box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.5); }
+    50%  { transform: scale(1.02); box-shadow: inset 0 0 20px rgba(16, 185, 129, 1); background-color: rgba(16, 185, 129, 0.2); }
+    100% { transform: scale(1); box-shadow: inset 0 0 0 0px rgba(16, 185, 129, 0); background-color: transparent; }
+  }
 }
 
 /* ─── Base Resets ─────────────────────────────────────────────────────────── */
@@ -83,6 +89,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   overscroll-behavior-y: none;
+}
+
+button {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+  touch-action: manipulation;
+}
+button:active {
+  transform: scale(0.96);
 }
 
 /* Custom scrollbar for admin panels */
@@ -141,6 +157,14 @@ body {
  */
 @utility animate-fadeIn {
   animation: fadeIn 0.25s ease-out both;
+}
+
+/*
+ * .animate-success-flash
+ * Brief green flash for successful button actions.
+ */
+@utility animate-success-flash {
+  animation: success-flash 0.6s ease-out both;
 }
 
 /*

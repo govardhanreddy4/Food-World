@@ -94,14 +94,16 @@ function AdminLayout() {
     return () => unsub();
   }, [currentUser?.uid]);
 
-  const playChime = () => {
+  const playChime = async () => {
     const config = settings?.customerAlert;
-    if (config?.audioUrl) {
+    const localAudioBase64 = localStorage.getItem("custom_assistance_sound");
+    
+    if (config?.audioUrl === "local" && localAudioBase64) {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
-      const audio = new Audio(config.audioUrl);
+      const audio = new Audio(localAudioBase64);
       audioRef.current = audio;
       audio.loop = true;
       audio.play().catch(console.error);
@@ -265,14 +267,14 @@ function AdminLayout() {
   }
 
   const NavLinks = () => (
-    <nav className="flex flex-col gap-1 flex-1">
+    <nav className="flex flex-col gap-1 flex-1 relative">
       {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
         <NavLink
           key={to}
           to={to}
           end={end}
           className={({ isActive }) =>
-            `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+            `relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 overflow-hidden ${
               isActive
                 ? "text-white"
                 : "text-white/50 hover:text-white/80 hover:bg-white/5"
@@ -281,24 +283,31 @@ function AdminLayout() {
           style={({ isActive }) =>
             isActive
               ? {
-                  background: "rgba(99,102,241,0.2)",
-                  border: "1px solid rgba(99,102,241,0.3)",
-                  boxShadow: "0 0 16px rgba(99,102,241,0.15)",
+                  background: "linear-gradient(90deg, rgba(99,102,241,0.15) 0%, transparent 100%)",
+                  border: "1px solid rgba(99,102,241,0.1)",
                 }
-              : {}
+              : { border: "1px solid transparent" }
           }
           onClick={() => setMobileMenuOpen(false)}
         >
-          <Icon size={18} />
-          <span>{label}</span>
-          {/* Waiter call badge on Dashboard link */}
-          {to === "/admin" && waiterCalls.length > 0 && (
-            <span
-              className="ml-auto flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold text-white animate-pulse"
-              style={{ background: "#ef4444" }}
-            >
-              {waiterCalls.length}
-            </span>
+          {({ isActive }) => (
+            <>
+              <div
+                className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-indigo-500 transition-all duration-300 ease-out origin-center ${
+                  isActive ? "scale-y-100 opacity-100 shadow-[0_0_12px_rgba(99,102,241,0.8)]" : "scale-y-0 opacity-0"
+                }`}
+              />
+              <Icon size={18} className={`transition-colors duration-300 ${isActive ? "text-indigo-400" : ""}`} />
+              <span className="relative z-10">{label}</span>
+              {to === "/admin" && waiterCalls.length > 0 && (
+                <span
+                  className="ml-auto flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold text-white animate-pulse"
+                  style={{ background: "#ef4444" }}
+                >
+                  {waiterCalls.length}
+                </span>
+              )}
+            </>
           )}
         </NavLink>
       ))}

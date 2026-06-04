@@ -133,6 +133,8 @@ function AdminDashboard() {
   const { currentUser } = useAuth();
   const [orders, setOrders]           = useState([]);
   const [statusFilter, setStatusFilter] = useState("Active");
+  const [timeFilter, setTimeFilter]   = useState("Today");
+  const [selectedDate, setSelectedDate] = useState("");
   const [loading, setLoading]         = useState(true);
   const prevOrderIds                  = useRef(new Set());
 
@@ -153,14 +155,16 @@ function AdminDashboard() {
     return () => unsub();
   }, [currentUser?.uid]);
 
-  const playOrderAlert = () => {
+  const playOrderAlert = async () => {
     const config = settings?.orderAlert;
-    if (config?.audioUrl) {
+    const localAudioBase64 = localStorage.getItem("custom_order_sound");
+    
+    if (config?.audioUrl === "local" && localAudioBase64) {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
-      const audio = new Audio(config.audioUrl);
+      const audio = new Audio(localAudioBase64);
       audioRef.current = audio;
       audio.loop = true;
       audio.play().catch(console.error);
@@ -301,8 +305,36 @@ function AdminDashboard() {
     }
   }
 
+  // ── Time Filter orders ──────────────────────────────────────
+  const timeFilteredOrders = orders.filter((o) => {
+    if (timeFilter === "Overall") return true;
+    
+    let orderDate = null;
+    if (o.createdAt) {
+      const d = o.createdAt?.toDate?.() || new Date(o.createdAt);
+      if (d instanceof Date && !isNaN(d)) {
+        // use local date format that matches input[type="date"] (YYYY-MM-DD)
+        const offset = d.getTimezoneOffset() * 60000;
+        orderDate = new Date(d.getTime() - offset).toISOString().split('T')[0];
+      }
+    }
+    
+    if (timeFilter === "Today") {
+      const d = new Date();
+      const offset = d.getTimezoneOffset() * 60000;
+      const today = new Date(d.getTime() - offset).toISOString().split('T')[0];
+      return orderDate === today;
+    }
+    
+    if (timeFilter === "Specific Date" && selectedDate) {
+      return orderDate === selectedDate;
+    }
+    
+    return true; // Fallback if no date parsing
+  });
+
   // ── Filter orders by tab ──────────────────────────────────────
-  const filteredOrders = orders.filter((o) => {
+  const filteredOrders = timeFilteredOrders.filter((o) => {
     if (statusFilter === "Active") return o.active === true;
     if (statusFilter === "Completed") return o.active === false;
     return true;
@@ -310,10 +342,10 @@ function AdminDashboard() {
 
   // ── Summary counts ────────────────────────────────────────────
   const stats = {
-    pending:      orders.reduce((acc, o) => acc + (o.orderBatches?.filter(b => (b.status || "pending").toLowerCase() === "pending").length || 0), 0),
-    preparing:    orders.reduce((acc, o) => acc + (o.orderBatches?.filter(b => (b.status || "pending").toLowerCase() === "preparing").length || 0), 0),
-    served:       orders.reduce((acc, o) => acc + (o.orderBatches?.filter(b => (b.status || "pending").toLowerCase() === "served").length || 0), 0),
-    activeTables: orders.filter((o) => o.active).length,
+    pending:      timeFilteredOrders.reduce((acc, o) => acc + (o.orderBatches?.filter(b => (b.status || "pending").toLowerCase() === "pending").length || 0), 0),
+    preparing:    timeFilteredOrders.reduce((acc, o) => acc + (o.orderBatches?.filter(b => (b.status || "pending").toLowerCase() === "preparing").length || 0), 0),
+    served:       timeFilteredOrders.reduce((acc, o) => acc + (o.orderBatches?.filter(b => (b.status || "pending").toLowerCase() === "served").length || 0), 0),
+    activeTables: timeFilteredOrders.filter((o) => o.active).length,
   };
 
   // ── Helper: get status pill styling ───────────────────────────
@@ -394,6 +426,38 @@ function AdminDashboard() {
           </div>
         </div>
 
+        {/* Time Filters */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+          <div className="flex flex-wrap gap-2">
+            {["Today", "Overall", "Specific Date"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setTimeFilter(f)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  timeFilter === f ? "text-white shadow-lg" : "text-white/40 hover:text-white/70"
+                }`}
+                style={
+                  timeFilter === f
+                    ? { background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(79,70,229,0.2))", border: "1px solid rgba(99,102,241,0.4)" }
+                    : { border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }
+                }
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          
+          {timeFilter === "Specific Date" && (
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="bg-[#0B0F19] border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-indigo-500/50 shadow-inner"
+              style={{ colorScheme: 'dark' }}
+            />
+          )}
+        </div>
+
         {/* Stats bar */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
@@ -449,8 +513,10 @@ function AdminDashboard() {
             <p className="text-sm text-slate-400 mt-2 max-w-sm">New customer orders from table QR codes will appear here instantly.</p>
           </div>
         ) : (
-          <div className="w-full overflow-x-auto rounded-2xl border border-white/10 scrollbar-hide" style={{ background: "rgba(15,23,42,0.4)", backdropFilter: "blur(16px)" }}>
-            <table className="w-full min-w-[800px] text-left border-collapse">
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden lg:block w-full max-w-full overflow-x-auto rounded-2xl border border-white/10 scrollbar-hide" style={{ background: "rgba(15,23,42,0.4)", backdropFilter: "blur(16px)" }}>
+              <table className="w-full min-w-[800px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/10 text-white/40 text-xs uppercase tracking-wider bg-white/5">
                   <th className="py-3.5 px-4 font-semibold">Table No.</th>
@@ -539,9 +605,116 @@ function AdminDashboard() {
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="lg:hidden flex flex-col gap-5">
+              {filteredOrders.map((order) => {
+                const latestTimestamp = order.orderBatches?.[order.orderBatches.length - 1]?.timestamp;
+                const allServed = order.orderBatches?.every(b => (b.status || "").toLowerCase() === "served");
+                
+                return (
+                  <div key={order.id} className="bg-white/5 border border-white/10 rounded-xl flex flex-col overflow-hidden shadow-lg">
+                    {/* Header: Table No & Timer */}
+                    <div className="flex justify-between items-start p-4 border-b border-white/5 bg-black/20">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-bold text-white text-lg">Table {order.tableNumber}</span>
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-semibold w-fit ${order.active ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" : "bg-slate-500/10 text-slate-400 border border-slate-500/20"}`}>
+                          {order.active ? "Active" : "Completed"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-white font-bold text-lg">₹{Number(order.totalAmount || 0).toFixed(2)}</span>
+                        <OrderTimer timestamp={latestTimestamp} status={order.status} />
+                      </div>
+                    </div>
+
+                    {/* Middle: Order Details */}
+                    <div className="p-4 space-y-4">
+                      {order.orderBatches?.map((batch, bIdx) => {
+                        const bStatus = (batch.status || "").toLowerCase();
+                        return (
+                          <div key={bIdx} className="text-xs bg-white/5 rounded-xl p-4 border border-white/5 shadow-sm">
+                            <div className="flex justify-between items-center mb-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-white/50 font-mono text-[10px] uppercase tracking-wider">Batch {bIdx + 1}</span>
+                                {getBatchStatusBadge(batch.status)}
+                              </div>
+                              {batch.timestamp && (
+                                <span className="text-[10px] text-white/30 font-mono">
+                                  {new Date(batch.timestamp?.toDate?.() || batch.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              {batch.items?.map((item, i) => (
+                                <div key={i} className="flex justify-between text-sm">
+                                  <span className="text-white/85 font-medium">{item.quantity}× {item.name}</span>
+                                  <span className="text-white/40 text-xs mt-0.5">₹{(item.price * item.quantity).toFixed(0)}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {batch.notes && (
+                              <div className="text-amber-300/80 italic text-xs mt-3 border-t border-white/5 pt-2 flex items-start gap-1.5">
+                                <span>📝</span>
+                                <span>{batch.notes}</span>
+                              </div>
+                            )}
+                            
+                            {/* Mobile Action Buttons (Full width) */}
+                            <div className="mt-4">
+                              {bStatus === "pending" && (
+                                <button
+                                  onClick={() => updateBatchStatus(order.id, batch.id, "Preparing")}
+                                  className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-xl hover:opacity-90 transition-all shadow-md"
+                                >
+                                  Start Cooking
+                                </button>
+                              )}
+                              {bStatus === "preparing" && (
+                                <button
+                                  onClick={() => updateBatchStatus(order.id, batch.id, "Ready")}
+                                  className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl hover:opacity-90 transition-all shadow-md"
+                                >
+                                  Mark Prepared
+                                </button>
+                              )}
+                              {bStatus === "ready" && (
+                                <button
+                                  onClick={() => updateBatchStatus(order.id, batch.id, "Served")}
+                                  className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-xl hover:opacity-90 transition-all shadow-md"
+                                >
+                                  Serve to Table
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Mobile Settle Action */}
+                    {order.active && allServed && (
+                      <div className="p-4 border-t border-white/5 bg-black/10">
+                        <button
+                          onClick={() => {
+                            setSettleOrder(order);
+                            setCashAmount("");
+                            setUpiAmount("");
+                          }}
+                          className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-xl hover:opacity-90 transition-all shadow-md"
+                        >
+                          Settle Bill
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 

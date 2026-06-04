@@ -73,12 +73,31 @@ export function AuthProvider({ children }) {
   // ── Auth Action Functions ───────────────────────────────────────────────
 
   /**
+   * Helper to automatically clear corrupt local storage if Firebase throws a quota error
+   */
+  async function checkAndClearQuotaError(error) {
+    if (
+      error.name === "QuotaExceededError" ||
+      (error.message && error.message.includes("QuotaExceededError"))
+    ) {
+      console.warn("Storage Quota Exceeded! Clearing legacy custom audio from localStorage...");
+      localStorage.removeItem("custom_order_sound");
+      localStorage.removeItem("custom_assistance_sound");
+    }
+  }
+
+  /**
    * login(email, password)
    * Signs in with email/password credentials.
    * Returns the UserCredential on success, throws on failure.
    */
   async function login(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+    try {
+      return await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      await checkAndClearQuotaError(error);
+      throw error;
+    }
   }
 
   /**
@@ -87,7 +106,12 @@ export function AuthProvider({ children }) {
    * Configured to always show account selection (see firebaseConfig.js).
    */
   async function loginWithGoogle() {
-    return signInWithPopup(auth, googleProvider);
+    try {
+      return await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      await checkAndClearQuotaError(error);
+      throw error;
+    }
   }
 
   /**

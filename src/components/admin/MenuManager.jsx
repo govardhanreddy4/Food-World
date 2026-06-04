@@ -65,6 +65,7 @@ const emptyForm = () => ({
 function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
   const [form, setForm]           = useState(emptyForm());
   const [saving, setSaving]       = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError]         = useState("");
   // Upload-specific state
   const [uploading, setUploading] = useState(false);  // true while file is in transit
@@ -96,6 +97,7 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
     setError("");
     setUploading(false);
     setUploadPct(0);
+    setSaveSuccess(false);
   }, [editItem, isOpen]);
 
   if (!isOpen) return null;
@@ -209,7 +211,11 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
         foodType: form.foodType || "Veg",
       };
       await onSave(payload);
-      onClose();
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        onClose();
+      }, 1000);
     } catch (err) {
       console.error(err);
       setError("Failed to save item. Please try again.");
@@ -558,14 +564,18 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
           {/* Submit — disabled while upload is in progress */}
           <button
             type="submit"
-            disabled={saving || uploading}
-            className="py-3 rounded-xl font-semibold text-white text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 flex items-center justify-center gap-2"
-            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+            disabled={saving || uploading || saveSuccess}
+            className={`py-3 rounded-xl font-semibold text-white text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 flex items-center justify-center gap-2 ${
+              saveSuccess ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-success-flash" : ""
+            }`}
+            style={saveSuccess ? {} : { background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
           >
             {uploading ? (
               <><Loader2 size={16} className="animate-spin" /> Uploading image…</>
             ) : saving ? (
               <><Loader2 size={16} className="animate-spin" /> Saving…</>
+            ) : saveSuccess ? (
+              <><CheckCircle2 size={16} /> Saved!</>
             ) : (
               editItem ? "Update Item" : "Add to Menu"
             )}
