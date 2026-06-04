@@ -27,6 +27,8 @@ function AdminSettings() {
   const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
   
+  const [restaurantName, setRestaurantName] = useState(() => localStorage.getItem("restaurant_name") || "");
+  
   const orderFileInputRef = useRef(null);
   const customerFileInputRef = useRef(null);
 
@@ -71,6 +73,10 @@ function AdminSettings() {
     } catch (e) {
       console.error("Error saving settings:", e);
     }
+  };
+
+  const handleSaveRestaurantName = () => {
+    localStorage.setItem("restaurant_name", restaurantName);
   };
 
   const updateField = async (type, field, value) => {
@@ -277,6 +283,31 @@ function AdminSettings() {
           {uploadError}
         </div>
       )}
+
+      {/* General Settings */}
+      <div className="rounded-2xl p-4 md:p-6 mb-4 md:mb-6" style={glassCard}>
+        <h2 className="text-white font-bold text-base md:text-lg mb-4">General Settings</h2>
+        <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
+          <div className="flex-1">
+            <label className="block text-xs md:text-sm font-semibold text-white/70 mb-1.5 md:mb-2">
+              Restaurant Name
+            </label>
+            <input
+              type="text"
+              value={restaurantName}
+              onChange={(e) => setRestaurantName(e.target.value)}
+              placeholder="Enter your restaurant name (e.g., Food World)"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50"
+            />
+          </div>
+          <button
+            onClick={handleSaveRestaurantName}
+            className="w-full md:w-auto px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl transition-all"
+          >
+            Save Settings
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         

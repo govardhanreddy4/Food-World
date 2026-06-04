@@ -136,7 +136,10 @@ function AdminDashboard() {
   const [timeFilter, setTimeFilter]   = useState("Today");
   const [selectedDate, setSelectedDate] = useState("");
   const [loading, setLoading]         = useState(true);
-  const prevOrderIds                  = useRef(new Set());
+  const prevPendingBatchIds           = useRef(new Set());
+  const isInitialOrdersLoad           = useRef(true);
+  const [activeAlarmOrder, setActiveAlarmOrder] = useState(null);
+  const beepIntervalRef               = useRef(null);
 
   // ── Settlement State ──────────────────────────────────────────
   const [settleOrder, setSettleOrder] = useState(null);
@@ -155,30 +158,36 @@ function AdminDashboard() {
     return () => unsub();
   }, [currentUser?.uid]);
 
-  const playOrderAlert = async () => {
-    const config = settings?.orderAlert;
+  const playOrderAlert = async (newOrder) => {
+    if (localStorage.getItem("fw_admin_muted") === "true") return;
+
+    stopAlarm();
+    setActiveAlarmOrder(newOrder);
+
     const localAudioBase64 = localStorage.getItem("custom_order_sound");
     
-    if (config?.audioUrl === "local" && localAudioBase64) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
+    if (localAudioBase64) {
       const audio = new Audio(localAudioBase64);
       audioRef.current = audio;
       audio.loop = true;
       audio.play().catch(console.error);
-      
-      const duration = config.duration || 15;
-      setTimeout(() => {
-        if (audioRef.current === audio) {
-          audio.pause();
-          audio.currentTime = 0;
-        }
-      }, duration * 1000);
     } else {
+      beepIntervalRef.current = setInterval(playDefaultBeep, 2000);
       playDefaultBeep();
     }
+  };
+
+  const stopAlarm = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (beepIntervalRef.current) {
+      clearInterval(beepIntervalRef.current);
+      beepIntervalRef.current = null;
+    }
+    setActiveAlarmOrder(null);
   };
 
   // ── Live orders listener ──────────────────────────────────────
@@ -191,18 +200,41 @@ function AdminDashboard() {
     const unsub = onSnapshot(q, (snap) => {
       const fetchedOrders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      // Detect new Pending orders → play alert beep
-      const currentPendingIds = new Set(
-        fetchedOrders.filter((o) => (o.status || "").toLowerCase() === "pending").map((o) => o.id)
-      );
-      let hasNewPending = false;
-      currentPendingIds.forEach((id) => {
-        if (!prevOrderIds.current.has(id)) hasNewPending = true;
+      // Detect new Pending batches → play alert beep
+      const currentPendingBatchIds = new Set();
+      fetchedOrders.forEach((o) => {
+        if (Array.isArray(o.orderBatches)) {
+          o.orderBatches.forEach((batch) => {
+            if ((batch.status || "pending").toLowerCase() === "pending") {
+              currentPendingBatchIds.add(`${o.id}_${batch.id}`);
+            }
+          });
+        }
       });
-      if (hasNewPending && prevOrderIds.current.size > 0) {
-        playOrderAlert();
+
+      let hasNewPending = false;
+      let newPendingOrder = null;
+      let newBatchIndex = null;
+      
+      currentPendingBatchIds.forEach((uniqueBatchId) => {
+        if (!prevPendingBatchIds.current.has(uniqueBatchId)) {
+          hasNewPending = true;
+          const [orderId, batchId] = uniqueBatchId.split("_");
+          newPendingOrder = fetchedOrders.find((o) => o.id === orderId);
+          if (newPendingOrder && newPendingOrder.orderBatches) {
+            newBatchIndex = newPendingOrder.orderBatches.findIndex((b) => String(b.id) === String(batchId));
+          }
+        }
+      });
+      
+      if (isInitialOrdersLoad.current) {
+        isInitialOrdersLoad.current = false;
+      } else if (hasNewPending && newPendingOrder) {
+        newPendingOrder.newBatchIndex = newBatchIndex;
+        playOrderAlert(newPendingOrder);
       }
-      prevOrderIds.current = currentPendingIds;
+      
+      prevPendingBatchIds.current = currentPendingBatchIds;
 
       const STATUS_WEIGHTS = {
         pending: 1,
@@ -411,6 +443,30 @@ function AdminDashboard() {
 
   return (
     <>
+    {/* New Order Alarm Pop-Up Modal */}
+    {activeAlarmOrder && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="bg-[#1e293b] border border-red-500/30 shadow-[0_0_40px_rgba(239,68,68,0.2)] rounded-3xl p-6 md:p-8 max-w-sm w-full text-center flex flex-col items-center">
+          <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-5 animate-pulse">
+            <Bell size={36} className="text-red-500" />
+          </div>
+          <h2 className="text-2xl font-black text-white mb-2 tracking-tight">⚠️ New Incoming Order!</h2>
+          <p className="text-white/60 mb-8 text-sm md:text-base">
+            Table <strong className="text-white text-lg">{activeAlarmOrder.tableNumber}</strong> has just placed a new order
+            {activeAlarmOrder.newBatchIndex !== undefined && activeAlarmOrder.newBatchIndex !== null 
+              ? ` (Batch ${activeAlarmOrder.newBatchIndex + 1})` 
+              : ''}.
+          </p>
+          <button
+            onClick={stopAlarm}
+            className="w-full py-3.5 md:py-4 px-6 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all"
+          >
+            Stop Alarm / Dismiss
+          </button>
+        </div>
+      </div>
+    )}
+
     <div className="flex flex-col xl:flex-row min-h-screen w-full overflow-hidden" style={{ background: "#0B0F19" }}>
       {/* ── Main KDS Content ─────────────────────────────────────── */}
       <div className="flex-1 p-3 md:p-6 min-w-0 w-full overflow-hidden">

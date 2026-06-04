@@ -421,6 +421,9 @@ function CustomerMenu() {
   const [confirming, setConfirming]     = useState(false);
   const [loadingMenu, setLoadingMenu]   = useState(true);
   const [error, setError]               = useState("");
+  
+  const [showWelcomeModal, setShowWelcomeModal] = useState(() => !sessionStorage.getItem("welcome_seen"));
+  const restaurantName = localStorage.getItem("restaurant_name") || "Food World";
 
   // ── On mount: check localStorage for existing locked session ─
   useEffect(() => {
@@ -624,13 +627,47 @@ function CustomerMenu() {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen relative"
       style={{
         background:
           "radial-gradient(ellipse at 0% 0%, #ffd6e7 0%, #c3f0ca 25%, #c9e4ff 50%, #ffe8b5 75%, #f3d6ff 100%)",
         backgroundAttachment: "fixed",
       }}
     >
+      {/* ── First-time Welcome Modal ─────────────────────────────── */}
+      {showWelcomeModal && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300"
+          style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)" }}
+          onClick={() => {
+            setShowWelcomeModal(false);
+            sessionStorage.setItem("welcome_seen", "true");
+          }}
+        >
+          <div 
+            className="p-8 rounded-3xl flex flex-col items-center justify-center shadow-2xl relative overflow-hidden max-w-sm w-full text-center"
+            style={{
+              background: "linear-gradient(145deg, rgba(15,23,42,0.95) 0%, rgba(30,41,59,0.9) 100%)",
+              border: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            {/* Subtle glow effect inside */}
+            <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl" />
+            
+            <h2 className="text-white text-2xl font-black mb-2 relative z-10 tracking-tight">
+              Welcome to {restaurantName}!
+            </h2>
+            <p className="text-white/70 text-sm font-medium relative z-10 mb-6">
+              Table {tableId} <span className="text-white/30 mx-1">•</span> Self-Ordering Menu
+            </p>
+            <p className="text-white/40 text-xs font-semibold relative z-10 animate-pulse">
+              [ Tap anywhere to continue ]
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Sticky Header ──────────────────────────────────────── */}
       <header
         className="sticky top-0 z-20 px-4 pt-5 pb-2"
@@ -644,7 +681,7 @@ function CustomerMenu() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="text-[#1A1A1A] font-black text-xl leading-none">
-              🍽️ Food World
+              🍽️ {restaurantName}
             </h1>
             <p className="text-gray-500 text-xs mt-0.5">Fresh from the kitchen</p>
           </div>

@@ -80,8 +80,12 @@ function AdminLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem("fw_admin_muted") === "true");
   const prevCallIds = useRef(new Set());
+  const isInitialCallsLoad = useRef(true);
   const [settings, setSettings] = useState(null);
   const audioRef = useRef(null);
+  const restaurantName = localStorage.getItem("restaurant_name") || "Food World";
+  const chimeIntervalRef = useRef(null);
+  const [activeAssistanceCall, setActiveAssistanceCall] = useState(null);
 
   // ── Fetch Settings ────────────────────────────────────────────
   useEffect(() => {
@@ -94,30 +98,36 @@ function AdminLayout() {
     return () => unsub();
   }, [currentUser?.uid]);
 
-  const playChime = async () => {
-    const config = settings?.customerAlert;
+  const playChime = async (newCall) => {
+    if (isMuted) return;
+
+    stopAssistanceAlarm();
+    setActiveAssistanceCall(newCall);
+
     const localAudioBase64 = localStorage.getItem("custom_assistance_sound");
     
-    if (config?.audioUrl === "local" && localAudioBase64) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
+    if (localAudioBase64) {
       const audio = new Audio(localAudioBase64);
       audioRef.current = audio;
       audio.loop = true;
       audio.play().catch(console.error);
-      
-      const duration = config.duration || 15;
-      setTimeout(() => {
-        if (audioRef.current === audio) {
-          audio.pause();
-          audio.currentTime = 0;
-        }
-      }, duration * 1000);
     } else {
+      chimeIntervalRef.current = setInterval(playDefaultChime, 2000);
       playDefaultChime();
     }
+  };
+
+  const stopAssistanceAlarm = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (chimeIntervalRef.current) {
+      clearInterval(chimeIntervalRef.current);
+      chimeIntervalRef.current = null;
+    }
+    setActiveAssistanceCall(null);
   };
 
   useEffect(() => {
@@ -241,14 +251,21 @@ function AdminLayout() {
       // Detect new incoming calls
       const currentCallIds = new Set(calls.map((c) => c.id));
       let hasNewCall = false;
+      let newIncomingCall = null;
       currentCallIds.forEach((id) => {
-        if (!prevCallIds.current.has(id)) hasNewCall = true;
+        if (!prevCallIds.current.has(id)) {
+          hasNewCall = true;
+          newIncomingCall = calls.find((c) => c.id === id);
+        }
       });
       
       // If there's a new call and we had a previous state, and it's not muted, play chime
-      if (hasNewCall && prevCallIds.current.size > 0 && !isMuted) {
-        playChime();
+      if (isInitialCallsLoad.current) {
+        isInitialCallsLoad.current = false;
+      } else if (hasNewCall && newIncomingCall && !isMuted) {
+        playChime(newIncomingCall);
       }
+      
       prevCallIds.current = currentCallIds;
 
       calls.sort((a, b) => {
@@ -315,6 +332,28 @@ function AdminLayout() {
   );
 
   return (
+    <>
+    {/* Assistance Alarm Pop-Up Modal */}
+    {activeAssistanceCall && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="bg-[#1e293b] border border-blue-500/30 shadow-[0_0_40px_rgba(59,130,246,0.2)] rounded-3xl p-6 md:p-8 max-w-sm w-full text-center flex flex-col items-center">
+          <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mb-5 animate-pulse">
+            <Bell size={36} className="text-blue-500" />
+          </div>
+          <h2 className="text-2xl font-black text-white mb-2 tracking-tight">🔔 Table Requesting Assistance!</h2>
+          <p className="text-white/60 mb-8 text-sm md:text-base">
+            Table <strong className="text-white text-lg">{activeAssistanceCall.tableNumber}</strong> has requested {activeAssistanceCall.requestType?.toLowerCase() || 'assistance'}.
+          </p>
+          <button
+            onClick={stopAssistanceAlarm}
+            className="w-full py-3.5 md:py-4 px-6 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all"
+          >
+            Stop Alarm / Dismiss
+          </button>
+        </div>
+      </div>
+    )}
+
     <div
       className="min-h-screen flex w-full overflow-x-hidden relative"
       style={{ background: "#0B0F19" }}
@@ -337,7 +376,7 @@ function AdminLayout() {
               <ChefHat size={18} className="text-white" />
             </div>
             <div>
-              <p className="text-white font-bold text-sm leading-none">Food World</p>
+              <p className="text-white font-bold text-sm leading-none">{restaurantName}</p>
               <p className="text-white/30 text-xs mt-0.5">Admin Panel</p>
             </div>
           </div>
@@ -382,7 +421,7 @@ function AdminLayout() {
       >
         <div className="flex items-center gap-2">
           <ChefHat size={18} className="text-indigo-400" />
-          <span className="text-white font-bold text-xs">Food World Admin</span>
+          <span className="text-white font-bold text-xs">{restaurantName} Admin</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
@@ -422,7 +461,7 @@ function AdminLayout() {
                 <ChefHat size={18} className="text-white" />
               </div>
               <div>
-                <p className="text-white font-bold text-sm leading-none">Food World</p>
+                <p className="text-white font-bold text-sm leading-none">{restaurantName}</p>
                 <p className="text-white/30 text-xs mt-0.5">Admin Panel</p>
               </div>
             </div>
@@ -466,6 +505,7 @@ function AdminLayout() {
         <Outlet />
       </main>
     </div>
+    </>
   );
 }
 
