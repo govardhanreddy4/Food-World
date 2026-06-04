@@ -413,12 +413,12 @@ function AdminDashboard() {
     <>
     <div className="flex flex-col xl:flex-row min-h-screen w-full overflow-hidden" style={{ background: "#0B0F19" }}>
       {/* ── Main KDS Content ─────────────────────────────────────── */}
-      <div className="flex-1 p-4 md:p-6 min-w-0 w-full overflow-hidden">
+      <div className="flex-1 p-3 md:p-6 min-w-0 w-full overflow-hidden">
         {/* Page header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-5 md:mb-6">
           <div>
-            <h1 className="text-white text-2xl font-bold">Kitchen Display System (KDS)</h1>
-            <p className="text-white/40 text-sm">Real-time KDS workflow table</p>
+            <h1 className="text-white text-xl md:text-2xl font-bold">Kitchen Display System (KDS)</h1>
+            <p className="text-white/40 text-xs md:text-sm">Real-time KDS workflow table</p>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -427,13 +427,13 @@ function AdminDashboard() {
         </div>
 
         {/* Time Filters */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 mb-5 md:mb-6">
           <div className="flex flex-wrap gap-2">
             {["Today", "Overall", "Specific Date"].map((f) => (
               <button
                 key={f}
                 onClick={() => setTimeFilter(f)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-[11px] md:text-xs font-bold transition-all ${
                   timeFilter === f ? "text-white shadow-lg" : "text-white/40 hover:text-white/70"
                 }`}
                 style={
@@ -452,14 +452,14 @@ function AdminDashboard() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-[#0B0F19] border border-white/10 rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-indigo-500/50 shadow-inner"
+              className="bg-[#0B0F19] border border-white/10 rounded-xl px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50 shadow-inner"
               style={{ colorScheme: 'dark' }}
             />
           )}
         </div>
 
         {/* Stats bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-6">
           {[
             { label: "Pending",       value: stats.pending,      color: "#ef4444" },
             { label: "Preparing",     value: stats.preparing,    color: "#f59e0b" },
@@ -468,26 +468,26 @@ function AdminDashboard() {
           ].map(({ label, value, color }) => (
             <div
               key={label}
-              className="rounded-2xl p-4"
+              className="rounded-2xl p-3 md:p-4"
               style={{
                 background: "rgba(15,23,42,0.6)",
                 border: `1px solid ${color}30`,
                 backdropFilter: "blur(16px)",
               }}
             >
-              <p className="text-white/40 text-xs mb-1">{label}</p>
-              <p className="text-white text-2xl font-bold" style={{ color }}>{value}</p>
+              <p className="text-white/40 text-[10px] md:text-xs mb-1">{label}</p>
+              <p className="text-white text-xl md:text-2xl font-bold" style={{ color }}>{value}</p>
             </div>
           ))}
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-2 mb-5">
+        <div className="flex gap-2 mb-4 md:mb-5">
           {["Active", "Completed", "All"].map((f) => (
             <button
               key={f}
               onClick={() => setStatusFilter(f)}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+              className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[11px] md:text-xs font-medium transition-all ${
                 statusFilter === f ? "text-white" : "text-white/40 hover:text-white/70"
               }`}
               style={
@@ -618,26 +618,26 @@ function AdminDashboard() {
                 return (
                   <div key={order.id} className="bg-white/5 border border-white/10 rounded-xl flex flex-col overflow-hidden shadow-lg">
                     {/* Header: Table No & Timer */}
-                    <div className="flex justify-between items-start p-4 border-b border-white/5 bg-black/20">
+                    <div className="flex justify-between items-start p-3 md:p-4 border-b border-white/5 bg-black/20">
                       <div className="flex flex-col gap-1">
-                        <span className="font-bold text-white text-lg">Table {order.tableNumber}</span>
+                        <span className="font-bold text-white text-base md:text-lg">Table {order.tableNumber}</span>
                         <span className={`px-2 py-1 rounded-full text-[10px] font-semibold w-fit ${order.active ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" : "bg-slate-500/10 text-slate-400 border border-slate-500/20"}`}>
                           {order.active ? "Active" : "Completed"}
                         </span>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <span className="text-white font-bold text-lg">₹{Number(order.totalAmount || 0).toFixed(2)}</span>
+                        <span className="text-white font-bold text-base md:text-lg">₹{Number(order.totalAmount || 0).toFixed(2)}</span>
                         <OrderTimer timestamp={latestTimestamp} status={order.status} />
                       </div>
                     </div>
 
                     {/* Middle: Order Details */}
-                    <div className="p-4 space-y-4">
+                    <div className="p-3 md:p-4 space-y-3 md:space-y-4">
                       {order.orderBatches?.map((batch, bIdx) => {
                         const bStatus = (batch.status || "").toLowerCase();
                         return (
-                          <div key={bIdx} className="text-xs bg-white/5 rounded-xl p-4 border border-white/5 shadow-sm">
-                            <div className="flex justify-between items-center mb-3">
+                          <div key={bIdx} className="text-xs bg-white/5 rounded-xl p-3 md:p-4 border border-white/5 shadow-sm">
+                            <div className="flex justify-between items-center mb-2 md:mb-3">
                               <div className="flex items-center gap-2">
                                 <span className="text-white/50 font-mono text-[10px] uppercase tracking-wider">Batch {bIdx + 1}</span>
                                 {getBatchStatusBadge(batch.status)}
@@ -648,27 +648,27 @@ function AdminDashboard() {
                                 </span>
                               )}
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-1 md:space-y-2">
                               {batch.items?.map((item, i) => (
                                 <div key={i} className="flex justify-between text-sm">
-                                  <span className="text-white/85 font-medium">{item.quantity}× {item.name}</span>
-                                  <span className="text-white/40 text-xs mt-0.5">₹{(item.price * item.quantity).toFixed(0)}</span>
+                                  <span className="text-white/85 font-medium text-xs md:text-sm">{item.quantity}× {item.name}</span>
+                                  <span className="text-white/40 text-[11px] md:text-xs mt-0.5">₹{(item.price * item.quantity).toFixed(0)}</span>
                                 </div>
                               ))}
                             </div>
                             {batch.notes && (
-                              <div className="text-amber-300/80 italic text-xs mt-3 border-t border-white/5 pt-2 flex items-start gap-1.5">
+                              <div className="text-amber-300/80 italic text-[11px] md:text-xs mt-2 md:mt-3 border-t border-white/5 pt-2 flex items-start gap-1.5">
                                 <span>📝</span>
                                 <span>{batch.notes}</span>
                               </div>
                             )}
                             
                             {/* Mobile Action Buttons (Full width) */}
-                            <div className="mt-4">
+                            <div className="mt-3 md:mt-4">
                               {bStatus === "pending" && (
                                 <button
                                   onClick={() => updateBatchStatus(order.id, batch.id, "Preparing")}
-                                  className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-xl hover:opacity-90 transition-all shadow-md"
+                                  className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md"
                                 >
                                   Start Cooking
                                 </button>
@@ -676,7 +676,7 @@ function AdminDashboard() {
                               {bStatus === "preparing" && (
                                 <button
                                   onClick={() => updateBatchStatus(order.id, batch.id, "Ready")}
-                                  className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl hover:opacity-90 transition-all shadow-md"
+                                  className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md"
                                 >
                                   Mark Prepared
                                 </button>
@@ -684,7 +684,7 @@ function AdminDashboard() {
                               {bStatus === "ready" && (
                                 <button
                                   onClick={() => updateBatchStatus(order.id, batch.id, "Served")}
-                                  className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-xl hover:opacity-90 transition-all shadow-md"
+                                  className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md"
                                 >
                                   Serve to Table
                                 </button>
@@ -697,14 +697,14 @@ function AdminDashboard() {
                     
                     {/* Mobile Settle Action */}
                     {order.active && allServed && (
-                      <div className="p-4 border-t border-white/5 bg-black/10">
+                      <div className="p-3 md:p-4 border-t border-white/5 bg-black/10">
                         <button
                           onClick={() => {
                             setSettleOrder(order);
                             setCashAmount("");
                             setUpiAmount("");
                           }}
-                          className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-xl hover:opacity-90 transition-all shadow-md"
+                          className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md"
                         >
                           Settle Bill
                         </button>

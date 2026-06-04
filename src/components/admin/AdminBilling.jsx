@@ -148,62 +148,62 @@ function AdminBilling() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl w-full md:w-auto" style={glassCard}>
-          <Calendar size={18} className="text-white/50 shrink-0" />
+        <div className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-xl w-full md:w-auto" style={glassCard}>
+          <Calendar size={16} className="text-white/50 shrink-0" />
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="bg-transparent border-none outline-none text-white font-medium text-sm w-full md:w-36 focus:ring-0"
+            className="bg-transparent border-none outline-none text-white font-medium text-xs md:text-sm w-full md:w-36 focus:ring-0"
             style={{ colorScheme: "dark" }}
           />
         </div>
       </div>
 
       {/* Summary Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
         {/* Card 1: Total Revenue */}
-        <div className="rounded-2xl p-6" style={glassCard}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
-              <Banknote size={20} />
+        <div className="rounded-2xl p-4 md:p-6" style={glassCard}>
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <div className="p-1.5 md:p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+              <Banknote size={18} />
             </div>
-            <p className="text-white/50 text-sm font-medium">Selected Day Settlement</p>
+            <p className="text-white/50 text-[11px] md:text-sm font-medium leading-tight">Selected Day<br className="md:hidden"/> Settlement</p>
           </div>
-          <p className="text-3xl font-black text-white ml-1">₹{metrics.totalRevenue.toFixed(2)}</p>
+          <p className="text-xl md:text-3xl font-black text-white ml-1">₹{metrics.totalRevenue.toFixed(2)}</p>
         </div>
 
         {/* Card 2: Cash Collection */}
-        <div className="rounded-2xl p-6" style={glassCard}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-300">
-              <Wallet size={20} />
+        <div className="rounded-2xl p-4 md:p-6" style={glassCard}>
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <div className="p-1.5 md:p-2 rounded-lg bg-emerald-500/10 text-emerald-300">
+              <Wallet size={18} />
             </div>
-            <p className="text-white/50 text-sm font-medium">Today's Cash Collection</p>
+            <p className="text-white/50 text-[11px] md:text-sm font-medium leading-tight">Today's Cash<br className="md:hidden"/> Collection</p>
           </div>
-          <p className="text-3xl font-black text-white ml-1">₹{metrics.totalCash.toFixed(2)}</p>
+          <p className="text-xl md:text-3xl font-black text-white ml-1">₹{metrics.totalCash.toFixed(2)}</p>
         </div>
 
         {/* Card 3: UPI Collection */}
-        <div className="rounded-2xl p-6" style={glassCard}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
-              <CreditCard size={20} />
+        <div className="rounded-2xl p-4 md:p-6" style={glassCard}>
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <div className="p-1.5 md:p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
+              <CreditCard size={18} />
             </div>
-            <p className="text-white/50 text-sm font-medium">Today's UPI Collection</p>
+            <p className="text-white/50 text-[11px] md:text-sm font-medium leading-tight">Today's UPI<br className="md:hidden"/> Collection</p>
           </div>
-          <p className="text-3xl font-black text-white ml-1">₹{metrics.totalUpi.toFixed(2)}</p>
+          <p className="text-xl md:text-3xl font-black text-white ml-1">₹{metrics.totalUpi.toFixed(2)}</p>
         </div>
 
         {/* Card 4: Total Orders */}
-        <div className="rounded-2xl p-6" style={glassCard}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-white/10 text-white/80">
-              <Receipt size={20} />
+        <div className="rounded-2xl p-4 md:p-6" style={glassCard}>
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <div className="p-1.5 md:p-2 rounded-lg bg-white/10 text-white/80">
+              <Receipt size={18} />
             </div>
-            <p className="text-white/50 text-sm font-medium">Orders Finalized</p>
+            <p className="text-white/50 text-[11px] md:text-sm font-medium leading-tight">Orders<br className="md:hidden"/> Finalized</p>
           </div>
-          <p className="text-3xl font-black text-white ml-1">{metrics.totalOrders}</p>
+          <p className="text-xl md:text-3xl font-black text-white ml-1">{metrics.totalOrders}</p>
         </div>
       </div>
 
@@ -260,34 +260,34 @@ function AdminBilling() {
         </div>
 
         {/* Mobile Card View */}
-        <div className="md:hidden flex flex-col gap-4">
+        <div className="md:hidden flex flex-col gap-3">
           {filteredOrders.map((order) => {
             const splits = getCashUpi(order);
             return (
-              <div key={order.id} className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden">
+              <div key={order.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden">
                 {/* Top: Table Name + Time */}
-                <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                  <span className="font-bold text-white text-lg">Table {order.tableNumber}</span>
-                  <span className="text-sm text-white/50">{formatTime(order)}</span>
+                <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                  <span className="font-bold text-white text-base">Table {order.tableNumber}</span>
+                  <span className="text-xs text-white/50">{formatTime(order)}</span>
                 </div>
                 
                 {/* Middle: Cash, UPI, Total Bill */}
-                <div className="grid grid-cols-3 gap-2 text-center bg-black/20 rounded-lg p-3">
+                <div className="grid grid-cols-3 gap-1.5 text-center bg-black/20 rounded-lg p-2">
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase text-white/40 tracking-wider mb-1">Cash</span>
-                    <span className="font-mono text-emerald-400 font-medium">
+                    <span className="text-[10px] uppercase text-white/40 tracking-wider mb-0.5">Cash</span>
+                    <span className="font-mono text-emerald-400 font-medium text-xs">
                       {splits.cash > 0 ? `₹${splits.cash.toFixed(2)}` : "-"}
                     </span>
                   </div>
                   <div className="flex flex-col border-x border-white/5">
-                    <span className="text-[10px] uppercase text-white/40 tracking-wider mb-1">UPI</span>
-                    <span className="font-mono text-indigo-400 font-medium">
+                    <span className="text-[10px] uppercase text-white/40 tracking-wider mb-0.5">UPI</span>
+                    <span className="font-mono text-indigo-400 font-medium text-xs">
                       {splits.upi > 0 ? `₹${splits.upi.toFixed(2)}` : "-"}
                     </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase text-white/40 tracking-wider mb-1">Total</span>
-                    <span className="font-mono text-white font-bold">
+                    <span className="text-[10px] uppercase text-white/40 tracking-wider mb-0.5">Total</span>
+                    <span className="font-mono text-white font-bold text-xs">
                       ₹{Number(order.totalAmount || 0).toFixed(2)}
                     </span>
                   </div>
@@ -295,7 +295,7 @@ function AdminBilling() {
 
                 {/* Bottom Right: Settled Badge */}
                 <div className="flex justify-end mt-1">
-                  <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     Settled ✓
                   </span>
                 </div>

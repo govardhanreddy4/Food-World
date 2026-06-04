@@ -373,7 +373,7 @@ function AdminLayout() {
 
       {/* ── Mobile Top Bar ───────────────────────────────────── */}
       <div
-        className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14"
+        className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-3 h-12"
         style={{
           background: "rgba(11,15,25,0.9)",
           backdropFilter: "blur(12px)",
@@ -381,8 +381,8 @@ function AdminLayout() {
         }}
       >
         <div className="flex items-center gap-2">
-          <ChefHat size={20} className="text-indigo-400" />
-          <span className="text-white font-bold text-sm">Food World Admin</span>
+          <ChefHat size={18} className="text-indigo-400" />
+          <span className="text-white font-bold text-xs">Food World Admin</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
@@ -391,9 +391,9 @@ function AdminLayout() {
           </div>
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="text-white/60 hover:text-white p-2 -mr-2"
+            className="text-white/60 hover:text-white p-1.5 -mr-1.5"
           >
-            <Menu size={24} />
+            <Menu size={20} />
           </button>
         </div>
       </div>
@@ -405,7 +405,7 @@ function AdminLayout() {
         onClick={() => setMobileMenuOpen(false)}
       >
         <div
-          className={`fixed top-0 left-0 bottom-0 w-[280px] p-5 flex flex-col transition-transform duration-300 ease-out transform ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+          className={`fixed top-0 left-0 bottom-0 w-[240px] p-4 flex flex-col transition-transform duration-300 ease-out transform ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
           style={{
             background: "#0B0F19",
             borderRight: "1px solid rgba(255,255,255,0.07)",
@@ -427,7 +427,7 @@ function AdminLayout() {
               </div>
             </div>
             <button onClick={() => setMobileMenuOpen(false)} className="text-white/40 hover:text-white p-1">
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
@@ -462,7 +462,7 @@ function AdminLayout() {
       </div>
 
       {/* ── Main Content Area ────────────────────────────────── */}
-      <main className="flex-1 min-w-0 pt-14 lg:pt-0 overflow-auto">
+      <main className="flex-1 min-w-0 pt-12 lg:pt-0 overflow-auto">
         <Outlet />
       </main>
     </div>

@@ -258,43 +258,43 @@ function AdminSettings() {
   return (
     <div className="min-h-screen p-6" style={{ background: "#0B0F19" }}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-center gap-3 mb-6 md:mb-8">
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
+          className="w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
           style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
         >
           <SettingsIcon size={20} className="text-white" />
         </div>
         <div>
-          <h1 className="text-white text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-white/40 text-sm">Customize real-time notification tones and alert durations</p>
+          <h1 className="text-white text-xl md:text-2xl font-bold tracking-tight">Settings</h1>
+          <p className="text-white/40 text-xs md:text-sm">Customize real-time notification tones and alert durations</p>
         </div>
       </div>
 
       {uploadError && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-medium text-sm flex items-center gap-3">
+        <div className="mb-5 md:mb-6 p-3 md:p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-medium text-xs md:text-sm flex items-center gap-3">
           <AlertTriangle size={18} />
           {uploadError}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         
         {/* New Order Alerts */}
-        <div className="rounded-2xl p-6 relative overflow-hidden" style={glassCard}>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <UtensilsCrossed size={20} />
+        <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden" style={glassCard}>
+          <div className="flex items-center gap-3 mb-4 md:mb-6">
+            <div className="p-2 md:p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <UtensilsCrossed size={18} md:size={20} />
             </div>
             <div>
-              <h2 className="text-white font-bold text-lg">New Order Alerts</h2>
-              <p className="text-white/40 text-xs mt-0.5">Plays when a new table order arrives in the KDS</p>
+              <h2 className="text-white font-bold text-base md:text-lg">New Order Alerts</h2>
+              <p className="text-white/40 text-[11px] md:text-xs mt-0.5">Plays when a new table order arrives in the KDS</p>
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <div>
-              <label className="block text-sm font-semibold text-white/70 mb-2">
+              <label className="block text-xs md:text-sm font-semibold text-white/70 mb-1.5 md:mb-2">
                 Playback Duration (Seconds)
               </label>
               <input
@@ -303,20 +303,20 @@ function AdminSettings() {
                 max="60"
                 value={settings.orderAlert.duration}
                 onChange={(e) => updateField("orderAlert", "duration", Number(e.target.value))}
-                className="w-full md:w-32 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500/50"
+                className="w-full md:w-32 bg-white/5 border border-white/10 rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50"
               />
               <p className="text-white/30 text-[10px] mt-2">Recommended: 15 seconds to ensure staff attention during rush.</p>
             </div>
 
             <div className="pt-4 border-t border-white/10">
-              <label className="block text-sm font-semibold text-white/70 mb-3">
+              <label className="block text-xs md:text-sm font-semibold text-white/70 mb-2 md:mb-3">
                 Custom Alert Tone
               </label>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <button
                   onClick={triggerOrderUpload}
                   disabled={uploadingOrder || uploadSuccessOrder}
-                  className={`inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all duration-300 ${
+                  className={`inline-flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2 w-full sm:w-auto rounded-xl text-xs md:text-sm font-semibold transition-all duration-300 ${
                     uploadingOrder
                       ? "bg-white/5 text-white/40"
                       : uploadSuccessOrder
@@ -344,7 +344,7 @@ function AdminSettings() {
                 
                 <button
                   onClick={() => playTestSound("orderAlert")}
-                  className={`inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all ${
+                  className={`inline-flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2 w-full sm:w-auto rounded-xl text-xs md:text-sm font-semibold transition-all ${
                     playingOrder ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" : "bg-white/5 text-white hover:bg-white/10"
                   }`}
                 >
@@ -367,20 +367,20 @@ function AdminSettings() {
         </div>
 
         {/* Customer Assistance Alerts */}
-        <div className="rounded-2xl p-6 relative overflow-hidden" style={glassCard}>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
-              <Bell size={20} />
+        <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden" style={glassCard}>
+          <div className="flex items-center gap-3 mb-4 md:mb-6">
+            <div className="p-2 md:p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
+              <Bell size={18} md:size={20} />
             </div>
             <div>
-              <h2 className="text-white font-bold text-lg">Customer Assistance Alerts</h2>
-              <p className="text-white/40 text-xs mt-0.5">Plays when a table requests a waiter or bill</p>
+              <h2 className="text-white font-bold text-base md:text-lg">Customer Assistance Alerts</h2>
+              <p className="text-white/40 text-[11px] md:text-xs mt-0.5">Plays when a table requests a waiter or bill</p>
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <div>
-              <label className="block text-sm font-semibold text-white/70 mb-2">
+              <label className="block text-xs md:text-sm font-semibold text-white/70 mb-1.5 md:mb-2">
                 Playback Duration (Seconds)
               </label>
               <input
@@ -389,20 +389,20 @@ function AdminSettings() {
                 max="60"
                 value={settings.customerAlert.duration}
                 onChange={(e) => updateField("customerAlert", "duration", Number(e.target.value))}
-                className="w-full md:w-32 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-indigo-500/50"
+                className="w-full md:w-32 bg-white/5 border border-white/10 rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50"
               />
               <p className="text-white/30 text-[10px] mt-2">Recommended: 15 seconds to ensure staff attention during rush.</p>
             </div>
 
             <div className="pt-4 border-t border-white/10">
-              <label className="block text-sm font-semibold text-white/70 mb-3">
+              <label className="block text-xs md:text-sm font-semibold text-white/70 mb-2 md:mb-3">
                 Custom Alert Tone
               </label>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <button
                   onClick={triggerCustomerUpload}
                   disabled={uploadingCustomer || uploadSuccessCustomer}
-                  className={`inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all duration-300 ${
+                  className={`inline-flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2 w-full sm:w-auto rounded-xl text-xs md:text-sm font-semibold transition-all duration-300 ${
                     uploadingCustomer
                       ? "bg-white/5 text-white/40"
                       : uploadSuccessCustomer
@@ -430,7 +430,7 @@ function AdminSettings() {
                 
                 <button
                   onClick={() => playTestSound("customerAlert")}
-                  className={`inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 w-full sm:w-auto rounded-xl text-sm font-semibold transition-all ${
+                  className={`inline-flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2 w-full sm:w-auto rounded-xl text-xs md:text-sm font-semibold transition-all ${
                     playingCustomer ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" : "bg-white/5 text-white hover:bg-white/10"
                   }`}
                 >

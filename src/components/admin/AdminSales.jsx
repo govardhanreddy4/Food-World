@@ -206,43 +206,43 @@ function AdminSales() {
       ) : (
         <div className="max-w-6xl">
           {/* Top Metrics Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-            <div className="rounded-2xl p-6 relative overflow-hidden group" style={glassCard}>
-              <div className="flex items-start justify-between mb-4">
-                <p className="text-white/50 text-sm font-medium uppercase tracking-wider">Total Revenue</p>
-                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-                  <Banknote size={20} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
+            <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden group" style={glassCard}>
+              <div className="flex items-start justify-between mb-3 md:mb-4">
+                <p className="text-white/50 text-xs md:text-sm font-medium uppercase tracking-wider">Total Revenue</p>
+                <div className="p-1.5 md:p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <Banknote size={18} />
                 </div>
               </div>
-              <h2 className="text-white text-3xl font-bold">₹{metrics.totalRevenue.toFixed(0)}</h2>
+              <h2 className="text-white text-2xl md:text-3xl font-bold">₹{metrics.totalRevenue.toFixed(0)}</h2>
             </div>
 
-            <div className="rounded-2xl p-5" style={glassCard}>
-              <div className="flex items-start justify-between mb-4">
-                <p className="text-white/50 text-sm font-medium uppercase tracking-wider">Total Orders</p>
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
-                  <Receipt size={20} />
+            <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
+              <div className="flex items-start justify-between mb-3 md:mb-4">
+                <p className="text-white/50 text-xs md:text-sm font-medium uppercase tracking-wider">Total Orders</p>
+                <div className="p-1.5 md:p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                  <Receipt size={18} />
                 </div>
               </div>
-              <h2 className="text-white text-3xl font-bold">{metrics.totalOrders}</h2>
+              <h2 className="text-white text-2xl md:text-3xl font-bold">{metrics.totalOrders}</h2>
             </div>
 
-            <div className="rounded-2xl p-5" style={glassCard}>
-              <div className="flex items-start justify-between mb-4">
-                <p className="text-white/50 text-sm font-medium uppercase tracking-wider">Average Order Value</p>
-                <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400">
-                  <TrendingUp size={20} />
+            <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
+              <div className="flex items-start justify-between mb-3 md:mb-4">
+                <p className="text-white/50 text-xs md:text-sm font-medium uppercase tracking-wider">Average Order Value</p>
+                <div className="p-1.5 md:p-2 rounded-lg bg-purple-500/10 text-purple-400">
+                  <TrendingUp size={18} />
                 </div>
               </div>
-              <h2 className="text-white text-3xl font-bold">₹{metrics.averageOrderValue.toFixed(0)}</h2>
+              <h2 className="text-white text-2xl md:text-3xl font-bold">₹{metrics.averageOrderValue.toFixed(0)}</h2>
             </div>
           </div>
 
           {/* Top-Selling Items */}
           <div className="rounded-2xl overflow-hidden" style={glassCard}>
-            <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center gap-3">
+            <div className="p-4 md:p-5 border-b border-white/5 bg-white/[0.02] flex items-center gap-3">
               <Trophy size={18} className="text-amber-400" />
-              <h3 className="text-white font-semibold">Top-Selling Items</h3>
+              <h3 className="text-white font-semibold text-sm md:text-base">Top-Selling Items</h3>
             </div>
             
             {topItems.length === 0 ? (
@@ -292,12 +292,12 @@ function AdminSales() {
               </div>
 
               {/* Mobile Card View */}
-              <div className="sm:hidden flex flex-col gap-4 p-4">
+              <div className="sm:hidden flex flex-col gap-3 p-3">
                 {topItems.map((item, idx) => (
-                  <div key={item.name} className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col gap-4">
+                  <div key={item.name} className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3">
                     {/* Top: Rank & Item Name */}
-                    <div className="flex items-center gap-3">
-                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
                         idx === 0 ? "bg-amber-400/20 text-amber-400" :
                         idx === 1 ? "bg-slate-300/20 text-slate-300" :
                         idx === 2 ? "bg-orange-400/20 text-orange-400" :
@@ -305,17 +305,17 @@ function AdminSales() {
                       }`}>
                         {idx + 1}
                       </span>
-                      <span className="font-bold text-white text-lg">{item.name}</span>
+                      <span className="font-bold text-white text-base">{item.name}</span>
                     </div>
                     {/* Bottom: Dual-column split */}
-                    <div className="flex justify-between items-center bg-black/20 rounded-lg p-4">
+                    <div className="flex justify-between items-center bg-black/20 rounded-lg p-3">
                       <div className="flex flex-col">
-                        <span className="text-[10px] uppercase text-white/40 tracking-wider mb-1">Units Sold</span>
-                        <span className="font-mono text-white/80 text-lg font-semibold">{item.count}</span>
+                        <span className="text-[10px] uppercase text-white/40 tracking-wider mb-0.5">Units Sold</span>
+                        <span className="font-mono text-white/80 text-base font-semibold">{item.count}</span>
                       </div>
                       <div className="flex flex-col items-end">
-                        <span className="text-[10px] uppercase text-white/40 tracking-wider mb-1">Total Revenue</span>
-                        <span className="font-mono text-white font-bold text-emerald-400 text-lg">₹{item.revenue.toFixed(0)}</span>
+                        <span className="text-[10px] uppercase text-white/40 tracking-wider mb-0.5">Total Revenue</span>
+                        <span className="font-mono text-white font-bold text-emerald-400 text-base">₹{item.revenue.toFixed(0)}</span>
                       </div>
                     </div>
                   </div>
