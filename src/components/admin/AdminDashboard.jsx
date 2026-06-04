@@ -768,7 +768,11 @@ function AdminDashboard() {
                                   return (
                                     <button
                                       disabled={isUpdating}
-                                      onClick={() => updateBatchStatus(order.id, batch.id, "Preparing")}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        updateBatchStatus(order.id, batch.id, "Preparing");
+                                      }}
                                       className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-70 flex justify-center items-center gap-2"
                                     >
                                       {isUpdating ? <><Loader2 size={16} className="animate-spin"/> Updating...</> : "Start Cooking"}
@@ -779,7 +783,11 @@ function AdminDashboard() {
                                   return (
                                     <button
                                       disabled={isUpdating}
-                                      onClick={() => updateBatchStatus(order.id, batch.id, "Ready")}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        updateBatchStatus(order.id, batch.id, "Ready");
+                                      }}
                                       className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-70 flex justify-center items-center gap-2"
                                     >
                                       {isUpdating ? <><Loader2 size={16} className="animate-spin"/> Updating...</> : "Mark Prepared"}
@@ -790,7 +798,11 @@ function AdminDashboard() {
                                   return (
                                     <button
                                       disabled={isUpdating}
-                                      onClick={() => updateBatchStatus(order.id, batch.id, "Served")}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        updateBatchStatus(order.id, batch.id, "Served");
+                                      }}
                                       className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-70 flex justify-center items-center gap-2"
                                     >
                                       {isUpdating ? <><Loader2 size={16} className="animate-spin"/> Updating...</> : "Serve to Table"}
