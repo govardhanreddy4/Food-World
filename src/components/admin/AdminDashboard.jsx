@@ -40,6 +40,7 @@ import {
   AlertTriangle,
   X,
   Users,
+  Loader2,
 } from "lucide-react";
 
 // ─── Status configuration ─────────────────────────────────────────────────────
@@ -140,6 +141,8 @@ function AdminDashboard() {
   const isInitialOrdersLoad           = useRef(true);
   const [activeAlarmOrder, setActiveAlarmOrder] = useState(null);
   const beepIntervalRef               = useRef(null);
+  const [updatingBatches, setUpdatingBatches] = useState(new Set());
+  const updatingBatchesRef            = useRef(new Set());
 
   // ── Settlement State ──────────────────────────────────────────
   const [settleOrder, setSettleOrder] = useState(null);
@@ -260,16 +263,34 @@ function AdminDashboard() {
         return timeA - timeB;
       });
 
-      setOrders(sortedOrders);
+      setOrders(prevOrders => {
+        return sortedOrders.map(newOrder => {
+          const prevOrder = prevOrders.find(p => p.id === newOrder.id);
+          if (!prevOrder) return newOrder;
+          
+          const mergedBatches = newOrder.orderBatches?.map(newBatch => {
+            if (updatingBatchesRef.current.has(newBatch.id)) {
+              const prevBatch = prevOrder.orderBatches?.find(b => b.id === newBatch.id);
+              if (prevBatch) {
+                return { ...newBatch, status: prevBatch.status };
+              }
+            }
+            return newBatch;
+          });
+          return { ...newOrder, orderBatches: mergedBatches };
+        });
+      });
       setLoading(false);
     }, (error) => console.error("Orders listener error:", error));
     return () => unsub();
   }, [currentUser, currentUser?.uid]);
 
-
-
   // ── Update Batch Status (Race-Condition-Proof Transaction) ───
   async function updateBatchStatus(orderId, batchId, newStatus) {
+    // 1. Lock the UI optimistically
+    updatingBatchesRef.current.add(batchId);
+    setUpdatingBatches(new Set(updatingBatchesRef.current));
+    
     // Optimistic local state update
     setOrders((prev) =>
       prev.map((order) => {
@@ -283,32 +304,47 @@ function AdminDashboard() {
       })
     );
 
-    try {
-      await runTransaction(db, async (transaction) => {
-        const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-        const orderSnap = await transaction.get(orderRef);
-        if (!orderSnap.exists()) throw new Error("Order does not exist!");
-        
-        const data = orderSnap.data();
-        const batches = data.orderBatches || [];
-        const bIdx = batches.findIndex((b) => b.id === batchId);
-        
-        if (bIdx === -1) {
-          console.warn("Batch not found in Firestore!");
-          return; // Might have been a legacy batch without ID, or concurrent delete
-        }
-        
-        batches[bIdx].status = newStatus;
-        
-        transaction.update(orderRef, {
-          orderBatches: batches,
-          updatedAt: serverTimestamp(),
+    let retries = 3;
+    let success = false;
+    
+    while (retries > 0 && !success) {
+      try {
+        await runTransaction(db, async (transaction) => {
+          const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+          const orderSnap = await transaction.get(orderRef);
+          if (!orderSnap.exists()) throw new Error("Order does not exist!");
+          
+          const data = orderSnap.data();
+          const batches = data.orderBatches || [];
+          const bIdx = batches.findIndex((b) => b.id === batchId);
+          
+          if (bIdx === -1) {
+            console.warn("Batch not found in Firestore!");
+            return; 
+          }
+          
+          batches[bIdx].status = newStatus;
+          
+          transaction.update(orderRef, {
+            orderBatches: batches,
+            updatedAt: serverTimestamp(),
+          });
         });
-      });
-    } catch (err) {
-      console.error("Failed to update batch status:", err);
-      alert("Failed to update batch status. Please try again.");
+        success = true;
+      } catch (err) {
+        retries -= 1;
+        if (retries === 0) {
+          console.error("Failed to update batch status after retries:", err);
+        } else {
+          // Silent background retry
+          await new Promise((res) => setTimeout(res, 500));
+        }
+      }
     }
+    
+    // 2. Unlock the UI
+    updatingBatchesRef.current.delete(batchId);
+    setUpdatingBatches(new Set(updatingBatchesRef.current));
   }
 
   // ── Archive Table (Settle Order) ──────────────────────────────
@@ -406,34 +442,39 @@ function AdminDashboard() {
 
   // ── Helper: render KDS actions ────────────────────────────────
   const renderBatchActions = (orderId, batch) => {
+    const isUpdating = updatingBatches.has(batch.id);
     const norm = (batch.status || "pending").toLowerCase();
+    
     if (norm === "pending") {
       return (
         <button
+          disabled={isUpdating}
           onClick={() => updateBatchStatus(orderId, batch.id, "Preparing")}
-          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-lg hover:opacity-90 transition-all shadow-sm"
+          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-lg hover:opacity-90 transition-all shadow-sm disabled:opacity-70 flex justify-center items-center gap-1.5"
         >
-          Start Cooking
+          {isUpdating ? <><Loader2 size={14} className="animate-spin"/> Updating...</> : "Start Cooking"}
         </button>
       );
     }
     if (norm === "preparing") {
       return (
         <button
+          disabled={isUpdating}
           onClick={() => updateBatchStatus(orderId, batch.id, "Ready")}
-          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg hover:opacity-90 transition-all shadow-sm"
+          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg hover:opacity-90 transition-all shadow-sm disabled:opacity-70 flex justify-center items-center gap-1.5"
         >
-          Mark Prepared
+          {isUpdating ? <><Loader2 size={14} className="animate-spin"/> Updating...</> : "Mark Prepared"}
         </button>
       );
     }
     if (norm === "ready") {
       return (
         <button
+          disabled={isUpdating}
           onClick={() => updateBatchStatus(orderId, batch.id, "Served")}
-          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg hover:opacity-90 transition-all shadow-sm"
+          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg hover:opacity-90 transition-all shadow-sm disabled:opacity-70 flex justify-center items-center gap-1.5"
         >
-          Serve to Table
+          {isUpdating ? <><Loader2 size={14} className="animate-spin"/> Updating...</> : "Serve to Table"}
         </button>
       );
     }
@@ -721,30 +762,43 @@ function AdminDashboard() {
                             
                             {/* Mobile Action Buttons (Full width) */}
                             <div className="mt-3 md:mt-4">
-                              {bStatus === "pending" && (
-                                <button
-                                  onClick={() => updateBatchStatus(order.id, batch.id, "Preparing")}
-                                  className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md"
-                                >
-                                  Start Cooking
-                                </button>
-                              )}
-                              {bStatus === "preparing" && (
-                                <button
-                                  onClick={() => updateBatchStatus(order.id, batch.id, "Ready")}
-                                  className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md"
-                                >
-                                  Mark Prepared
-                                </button>
-                              )}
-                              {bStatus === "ready" && (
-                                <button
-                                  onClick={() => updateBatchStatus(order.id, batch.id, "Served")}
-                                  className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md"
-                                >
-                                  Serve to Table
-                                </button>
-                              )}
+                              {(() => {
+                                const isUpdating = updatingBatches.has(batch.id);
+                                if (bStatus === "pending") {
+                                  return (
+                                    <button
+                                      disabled={isUpdating}
+                                      onClick={() => updateBatchStatus(order.id, batch.id, "Preparing")}
+                                      className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-70 flex justify-center items-center gap-2"
+                                    >
+                                      {isUpdating ? <><Loader2 size={16} className="animate-spin"/> Updating...</> : "Start Cooking"}
+                                    </button>
+                                  );
+                                }
+                                if (bStatus === "preparing") {
+                                  return (
+                                    <button
+                                      disabled={isUpdating}
+                                      onClick={() => updateBatchStatus(order.id, batch.id, "Ready")}
+                                      className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-70 flex justify-center items-center gap-2"
+                                    >
+                                      {isUpdating ? <><Loader2 size={16} className="animate-spin"/> Updating...</> : "Mark Prepared"}
+                                    </button>
+                                  );
+                                }
+                                if (bStatus === "ready") {
+                                  return (
+                                    <button
+                                      disabled={isUpdating}
+                                      onClick={() => updateBatchStatus(order.id, batch.id, "Served")}
+                                      className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-70 flex justify-center items-center gap-2"
+                                    >
+                                      {isUpdating ? <><Loader2 size={16} className="animate-spin"/> Updating...</> : "Serve to Table"}
+                                    </button>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </div>
                           </div>
                         );
