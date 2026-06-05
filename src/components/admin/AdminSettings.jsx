@@ -190,9 +190,9 @@ function AdminSettings() {
       }
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Upload failed, using local browser fallback...");
       
       try {
+        // Explicitly call local database fallback first
         await saveAudioToLocalDB(type, compressedBlob);
         await updateField(type, "audioUrl", `localDB:${type}`);
         
@@ -203,13 +203,25 @@ function AdminSettings() {
           setUploadSuccessCustomer(true);
           setTimeout(() => setUploadSuccessCustomer(false), 2000);
         }
+
+        // Immediately clear loading flag so UI unfreezes before blocking alert
+        if (type === "orderAlert") setUploadingOrder(false);
+        else setUploadingCustomer(false);
+
+        setTimeout(() => {
+          alert("Upload failed, using local browser fallback...");
+        }, 50);
+
       } catch (fallbackErr) {
         console.error("Local fallback also failed:", fallbackErr);
         setUploadError("Failed to upload audio and local fallback also failed.");
       }
     } finally {
+      // Guarantee State Resets in a finally Block
       if (type === "orderAlert") setUploadingOrder(false);
       else setUploadingCustomer(false);
+      
+      if (e.target) e.target.value = "";
     }
   };
 
