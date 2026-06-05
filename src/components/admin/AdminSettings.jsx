@@ -154,10 +154,10 @@ function AdminSettings() {
 
     setUploadError(""); // clear previous errors
 
-    // Strict 2MB limit
-    if (file.size > 2 * 1024 * 1024) {
-      alert("File too large! Please upload an audio file under 2MB.");
-      setUploadError("File too large. Please upload an alert audio file under 2MB.");
+    // Strict 5MB limit
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size exceeds the 5MB limit. Please trim or compress your audio file and try again.");
+      setUploadError("File size exceeds the 5MB limit. Please trim or compress your audio file and try again.");
       e.target.value = ""; // clear the input
       return;
     }
