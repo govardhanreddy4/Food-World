@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { useAuth } from "../../context/AuthContext";
-import { Receipt, Calendar, Banknote, Wallet, CreditCard } from "lucide-react";
+import { Receipt, Calendar, Banknote, Wallet, CreditCard, Utensils, ShoppingBag } from "lucide-react";
 
 function AdminBilling() {
   const { currentUser } = useAuth();
@@ -87,14 +87,37 @@ function AdminBilling() {
     let totalRevenue = 0;
     let totalCash = 0;
     let totalUpi = 0;
+    let totalDineIn = 0;
+    let totalParcel = 0;
 
     filteredOrders.forEach((o) => {
-      totalRevenue += Number(o.totalAmount || 0);
+      const orderTotal = Number(o.totalAmount || 0);
+      totalRevenue += orderTotal;
+      
       if (o.paymentSplit) {
         totalCash += Number(o.paymentSplit.cash || 0);
         totalUpi += Number(o.paymentSplit.upi || 0);
       } else {
-        totalCash += Number(o.totalAmount || 0);
+        totalCash += orderTotal;
+      }
+      
+      if (o.orderBatches && o.orderBatches.length > 0) {
+        o.orderBatches.forEach(batch => {
+          const batchTotal = batch.items?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0;
+          const type = batch.fulfillmentType || o.fulfillmentType || 'dine-in';
+          if (type === 'parcel') {
+            totalParcel += batchTotal;
+          } else {
+            totalDineIn += batchTotal;
+          }
+        });
+      } else {
+        const type = o.fulfillmentType || 'dine-in';
+        if (type === 'parcel') {
+          totalParcel += orderTotal;
+        } else {
+          totalDineIn += orderTotal;
+        }
       }
     });
 
@@ -103,6 +126,8 @@ function AdminBilling() {
       totalOrders: filteredOrders.length,
       totalCash,
       totalUpi,
+      totalDineIn,
+      totalParcel,
     };
   }, [filteredOrders]);
 
@@ -161,49 +186,71 @@ function AdminBilling() {
       </div>
 
       {/* Summary Widgets */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
         {/* Card 1: Total Revenue */}
-        <div className="rounded-2xl p-4 md:p-6" style={glassCard}>
+        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
           <div className="flex items-center gap-2 md:gap-3 mb-2">
             <div className="p-1.5 md:p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
               <Banknote size={18} />
             </div>
-            <p className="text-white/50 text-[11px] md:text-sm font-medium leading-tight">Selected Day<br className="md:hidden"/> Settlement</p>
+            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Selected Day<br className="md:hidden"/> Settlement</p>
           </div>
-          <p className="text-xl md:text-3xl font-black text-white ml-1">₹{metrics.totalRevenue.toFixed(2)}</p>
+          <p className="text-lg md:text-2xl font-black text-white ml-1">₹{metrics.totalRevenue.toFixed(2)}</p>
         </div>
 
-        {/* Card 2: Cash Collection */}
-        <div className="rounded-2xl p-4 md:p-6" style={glassCard}>
+        {/* Card 2: Dine-In Total */}
+        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <div className="p-1.5 md:p-2 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+              <span className="text-sm md:text-base leading-none">🍽️</span>
+            </div>
+            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Today's Dine-In<br className="md:hidden"/> Revenue</p>
+          </div>
+          <p className="text-lg md:text-2xl font-black text-white ml-1">₹{metrics.totalDineIn.toFixed(2)}</p>
+        </div>
+
+        {/* Card 3: Parcel Total */}
+        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <div className="p-1.5 md:p-2 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center">
+              <span className="text-sm md:text-base leading-none">🛍️</span>
+            </div>
+            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Today's Takeaway<br className="md:hidden"/> / Parcel</p>
+          </div>
+          <p className="text-lg md:text-2xl font-black text-white ml-1">₹{metrics.totalParcel.toFixed(2)}</p>
+        </div>
+
+        {/* Card 4: Cash Collection */}
+        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
           <div className="flex items-center gap-2 md:gap-3 mb-2">
             <div className="p-1.5 md:p-2 rounded-lg bg-emerald-500/10 text-emerald-300">
               <Wallet size={18} />
             </div>
-            <p className="text-white/50 text-[11px] md:text-sm font-medium leading-tight">Today's Cash<br className="md:hidden"/> Collection</p>
+            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Today's Cash<br className="md:hidden"/> Collection</p>
           </div>
-          <p className="text-xl md:text-3xl font-black text-white ml-1">₹{metrics.totalCash.toFixed(2)}</p>
+          <p className="text-lg md:text-2xl font-black text-white ml-1">₹{metrics.totalCash.toFixed(2)}</p>
         </div>
 
-        {/* Card 3: UPI Collection */}
-        <div className="rounded-2xl p-4 md:p-6" style={glassCard}>
+        {/* Card 5: UPI Collection */}
+        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
           <div className="flex items-center gap-2 md:gap-3 mb-2">
             <div className="p-1.5 md:p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
               <CreditCard size={18} />
             </div>
-            <p className="text-white/50 text-[11px] md:text-sm font-medium leading-tight">Today's UPI<br className="md:hidden"/> Collection</p>
+            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Today's UPI<br className="md:hidden"/> Collection</p>
           </div>
-          <p className="text-xl md:text-3xl font-black text-white ml-1">₹{metrics.totalUpi.toFixed(2)}</p>
+          <p className="text-lg md:text-2xl font-black text-white ml-1">₹{metrics.totalUpi.toFixed(2)}</p>
         </div>
 
-        {/* Card 4: Total Orders */}
-        <div className="rounded-2xl p-4 md:p-6" style={glassCard}>
+        {/* Card 6: Total Orders */}
+        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
           <div className="flex items-center gap-2 md:gap-3 mb-2">
             <div className="p-1.5 md:p-2 rounded-lg bg-white/10 text-white/80">
               <Receipt size={18} />
             </div>
-            <p className="text-white/50 text-[11px] md:text-sm font-medium leading-tight">Orders<br className="md:hidden"/> Finalized</p>
+            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Orders<br className="md:hidden"/> Finalized</p>
           </div>
-          <p className="text-xl md:text-3xl font-black text-white ml-1">{metrics.totalOrders}</p>
+          <p className="text-lg md:text-2xl font-black text-white ml-1">{metrics.totalOrders}</p>
         </div>
       </div>
 
