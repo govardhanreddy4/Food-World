@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage, COLLECTIONS } from "../../firebase/firebaseConfig";
+import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { compressAudio } from "../../utils/audioCompression";
 import { saveAudioToLocalDB, getAudioFromLocalDB } from "../../utils/audioStorage";
 import { useAuth } from "../../context/AuthContext";
@@ -117,6 +116,10 @@ function AdminSettings() {
         ...settings,
         [type]: { ...settings[type], [field]: value }
       };
+      // If we are setting a localDB audio, also set the flat flag requested by the user
+      if (field === "audioUrl" && value.startsWith("localDB:")) {
+        updated[`${type}AudioUrl`] = "localDB";
+      }
       setSettings(updated);
       await setDoc(doc(db, COLLECTIONS.SETTINGS, currentUser.uid), updated, { merge: true });
     } catch (error) {
@@ -183,92 +186,25 @@ function AdminSettings() {
     else setUploadingCustomer(true);
 
     try {
-      // 2. Explicit File to Blob Conversion & Compression:
-      const arrayBuffer = await file.arrayBuffer();
-      const rawBlob = new Blob([arrayBuffer], { type: fileType });
+      // 2. Force the file handler to immediately call saveAudioToLocalDB:
+      console.log(`Saving pure audio binary directly to local IndexedDB under key: ${type}`);
+      await saveAudioToLocalDB(type, file);
+      console.log(`Successfully saved raw audio to local IndexedDB`);
 
-      let audioBlob = null;
-      try {
-        console.log(`Processing audio compression for: ${fileName}`);
-        
-        // Wrap compression in a 3-second timeout to prevent hanging on unsupported devices
-        const compressionPromise = compressAudio(rawBlob);
-        const compressionTimeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Audio compression timed out (3s limit reached)")), 3000)
-        );
-        
-        audioBlob = await Promise.race([compressionPromise, compressionTimeoutPromise]);
-        console.log(`Audio successfully compressed. New type: ${audioBlob.type}, size: ${audioBlob.size} bytes`);
-      } catch (compressionErr) {
-        console.error("Audio compression failed or timed out. Falling back to raw Blob binary stream. Error:", compressionErr);
-        audioBlob = rawBlob;
+      // 3. Update the Firestore configuration document with a standard local flag:
+      updateField(type, "audioUrl", `localDB:${type}`);
+
+      if (type === "orderAlert") {
+        setUploadSuccessOrder(true);
+        setTimeout(() => setUploadSuccessOrder(false), 2000);
+      } else {
+        setUploadSuccessCustomer(true);
+        setTimeout(() => setUploadSuccessCustomer(false), 2000);
       }
-
-      // 3. Fortify Cloud & Local DB Preservation:
-      try {
-        console.log(`Initiating Firebase Storage upload for ${type}...`);
-        const storageRef = ref(storage, `notification_sounds/${currentUser.uid}_${type}_sound`);
-        
-        // Wrap the Firebase Storage upload in a 6-second timeout to prevent UI hanging on network dropouts
-        const uploadPromise = (async () => {
-          await uploadBytes(storageRef, audioBlob, { contentType: audioBlob.type });
-          return await getDownloadURL(storageRef);
-        })();
-
-        const uploadTimeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Firebase upload timed out (6s limit reached)")), 6000)
-        );
-
-        const downloadUrl = await Promise.race([uploadPromise, uploadTimeoutPromise]);
-        console.log("Firebase upload successful. Download URL:", downloadUrl);
-
-        // Do NOT await updateField so that Firestore network delays or rule checks don't block the UI reset
-        updateField(type, "audioUrl", downloadUrl);
-        
-        if (type === "orderAlert") {
-          setUploadSuccessOrder(true);
-          setTimeout(() => setUploadSuccessOrder(false), 2000);
-        } else {
-          setUploadSuccessCustomer(true);
-          setTimeout(() => setUploadSuccessCustomer(false), 2000);
-        }
-      } catch (firebaseErr) {
-        console.warn("Cloud upload blocked or timed out, falling back to local DB:", firebaseErr);
-        
-        try {
-          console.log(`Saving pure audio binary to local IndexedDB under key: ${type}`);
-          await saveAudioToLocalDB(type, audioBlob);
-          
-          // Do NOT await updateField so that Firestore network delays or rule checks don't block the UI reset
-          updateField(type, "audioUrl", `localDB:${type}`);
-          console.log(`Successfully saved audio to local IndexedDB`);
-          
-          if (type === "orderAlert") {
-            setUploadSuccessOrder(true);
-            setTimeout(() => setUploadSuccessOrder(false), 2000);
-          } else {
-            setUploadSuccessCustomer(true);
-            setTimeout(() => setUploadSuccessCustomer(false), 2000);
-          }
-
-          // Immediately clear loading flags so UI unfreezes before blocking alert
-          setUploadingOrder(false);
-          setUploadingCustomer(false);
-
-          setTimeout(() => {
-            alert("Cloud upload failed due to network rules, using local browser fallback...");
-          }, 50);
-
-        } catch (localDbErr) {
-          console.error("Critical error: Local IndexedDB fallback also failed. Error:", localDbErr);
-          setUploadError("Failed to upload audio and local fallback also failed.");
-          alert("Critical Error: Audio file upload and local storage fallback both failed.");
-        }
-      }
-    } catch (processErr) {
-      console.error("File reading or processing stream broke:", processErr);
-      setUploadError("An error occurred during file processing.");
-      alert("Error occurred during file processing.");
+    } catch (err) {
+      console.error("Local upload failed:", err);
+      setUploadError("Failed to save audio file to local DB.");
+      alert("Error: Local IndexedDB storage failed.");
     } finally {
       // 4. Guaranteed Interface Reset:
       if (inputElement) inputElement.value = "";
