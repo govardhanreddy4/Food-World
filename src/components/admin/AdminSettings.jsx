@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { compressAudio } from "../../utils/audioCompression";
-import { saveAudioToLocalDB } from "../../utils/audioStorage";
+import { saveAudioToLocalDB, getAudioFromLocalDB } from "../../utils/audioStorage";
 import { useAuth } from "../../context/AuthContext";
 import {
   Settings as SettingsIcon,
@@ -150,35 +150,64 @@ function AdminSettings() {
 
   // ─── File Upload Logic ──────────────────────────────────────
   const handleAudioUpload = async (e, type) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    // 1. Capture standard input event target metrics securely upfront
+    const file = e.target?.files?.[0];
+    if (!file) {
+      console.error("Audio upload failed: No file selected or file object lost.");
+      return;
+    }
+
+    const fileName = file.name;
+    const fileType = file.type || "audio/mpeg";
+    const fileSize = file.size;
 
     setUploadError(""); // clear previous errors
 
     // Strict 5MB limit
-    if (file.size > 5 * 1024 * 1024) {
-      alert("File size exceeds the 5MB limit. Please trim or compress your audio file and try again.");
-      setUploadError("File size exceeds the 5MB limit. Please trim or compress your audio file and try again.");
-      e.target.value = ""; // clear the input
+    if (fileSize > 5 * 1024 * 1024) {
+      const errMsg = `File size (${(fileSize / (1024 * 1024)).toFixed(2)}MB) exceeds the 5MB limit. Please trim or compress your audio file.`;
+      console.error("Audio upload failed:", errMsg);
+      alert(errMsg);
+      setUploadError(errMsg);
+      if (e.target) e.target.value = "";
       return;
     }
 
     if (type === "orderAlert") setUploadingOrder(true);
     else setUploadingCustomer(true);
 
-    let compressedBlob;
+    let audioBlob = null;
+
+    // Convert file to standard binary Blob and compress
     try {
-      // Compress audio to reduce size and upload to Firebase Storage
-      compressedBlob = await compressAudio(file);
-    } catch (err) {
-      console.error("Audio compression failed:", err);
-      compressedBlob = file; // Fallback to raw file if compression fails
+      console.log(`Processing audio file: ${fileName} (${fileType}, ${fileSize} bytes)`);
+      audioBlob = await compressAudio(file);
+      console.log(`Audio successfully compressed. New type: ${audioBlob.type}, size: ${audioBlob.size} bytes`);
+    } catch (compressionErr) {
+      console.error("Audio compression failed. Falling back to raw file conversion. Error:", compressionErr);
+      try {
+        // Fallback: convert raw file into a binary Blob data stream
+        audioBlob = new Blob([file], { type: fileType });
+        console.log(`Fallback to raw Blob successful. Type: ${audioBlob.type}, size: ${audioBlob.size} bytes`);
+      } catch (blobErr) {
+        console.error("Critical error: Failed to convert raw file to Blob binary stream:", blobErr);
+        setUploadError("Failed to process file binary stream.");
+        if (type === "orderAlert") setUploadingOrder(false);
+        else setUploadingCustomer(false);
+        if (e.target) e.target.value = "";
+        return;
+      }
     }
 
+    // Cloud upload and IndexedDB fallback routing
     try {
+      console.log(`Initiating Firebase Storage upload for ${type}...`);
       const storageRef = ref(storage, `notification_sounds/${currentUser.uid}_${type}_sound`);
-      await uploadBytes(storageRef, compressedBlob);
+      
+      // Pass the pure file data binary with preserved type metadata to Firebase
+      await uploadBytes(storageRef, audioBlob, { contentType: audioBlob.type });
       const downloadUrl = await getDownloadURL(storageRef);
+      console.log("Firebase upload successful. Download URL:", downloadUrl);
 
       await updateField(type, "audioUrl", downloadUrl);
       
@@ -189,13 +218,14 @@ function AdminSettings() {
         setUploadSuccessCustomer(true);
         setTimeout(() => setUploadSuccessCustomer(false), 2000);
       }
-    } catch (err) {
-      console.error("Upload error:", err);
+    } catch (firebaseErr) {
+      console.error("Firebase Storage upload failed. Routing to local IndexedDB fallback. Error:", firebaseErr);
       
       try {
-        // Explicitly call local database fallback first
-        await saveAudioToLocalDB(type, compressedBlob);
+        console.log(`Saving pure audio binary to local IndexedDB with type: ${audioBlob.type}`);
+        await saveAudioToLocalDB(type, audioBlob);
         await updateField(type, "audioUrl", `localDB:${type}`);
+        console.log(`Successfully saved audio to local IndexedDB under key: ${type}`);
         
         if (type === "orderAlert") {
           setUploadSuccessOrder(true);
@@ -210,12 +240,13 @@ function AdminSettings() {
         else setUploadingCustomer(false);
 
         setTimeout(() => {
-          alert("Upload failed, using local browser fallback...");
+          alert("Cloud upload failed due to network rules, using local browser fallback...");
         }, 50);
 
-      } catch (fallbackErr) {
-        console.error("Local fallback also failed:", fallbackErr);
+      } catch (localDbErr) {
+        console.error("Critical error: Local IndexedDB fallback also failed. Error:", localDbErr);
         setUploadError("Failed to upload audio and local fallback also failed.");
+        alert("Critical Error: Audio file upload and local storage fallback both failed.");
       }
     } finally {
       // Guarantee State Resets in a finally Block
@@ -263,30 +294,66 @@ function AdminSettings() {
     const audioUrl = config?.audioUrl;
 
     if (audioUrl && audioUrl !== "local" && audioUrl !== "") {
-      const audio = new Audio(audioUrl);
-      ref.current = audio;
-      audio.loop = true;
-      audio.play().catch(console.error);
-      setPlayingState(true);
+      let finalAudioUrl = audioUrl;
+      let isLocalUrl = false;
 
-      setTimeout(() => {
-        if (ref.current === audio) {
-          audio.pause();
-          audio.currentTime = 0;
-          setPlayingState(false);
+      if (audioUrl.startsWith("localDB:")) {
+        const key = audioUrl.split(":")[1];
+        try {
+          const blob = await getAudioFromLocalDB(key);
+          if (blob) {
+            finalAudioUrl = URL.createObjectURL(blob);
+            isLocalUrl = true;
+          } else {
+            console.warn("Local DB audio blob not found, falling back to default beep.");
+            playDefaultBeep(type);
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to retrieve audio from IndexedDB for test playback:", err);
+          playDefaultBeep(type);
+          return;
         }
-      }, config.duration * 1000);
-    } else {
-      // Fallback
-      if (type === "orderAlert") {
-        playWebAudioBeep([
-          { freq: 880, start: 0,    duration: 0.15 },
-          { freq: 660, start: 0.2,  duration: 0.15 },
-          { freq: 880, start: 0.4,  duration: 0.15 },
-        ]);
-      } else {
-        playWebAudioBeep([{ freq: 1200, start: 0, duration: 0.3 }]);
       }
+
+      try {
+        const audio = new Audio(finalAudioUrl);
+        ref.current = audio;
+        audio.loop = true;
+        await audio.play();
+        setPlayingState(true);
+
+        setTimeout(() => {
+          if (ref.current === audio) {
+            audio.pause();
+            audio.currentTime = 0;
+            setPlayingState(false);
+          }
+          if (isLocalUrl) {
+            URL.revokeObjectURL(finalAudioUrl);
+          }
+        }, config.duration * 1000);
+      } catch (err) {
+        console.error("Playback failed for custom tone:", err);
+        if (isLocalUrl) {
+          URL.revokeObjectURL(finalAudioUrl);
+        }
+        playDefaultBeep(type);
+      }
+    } else {
+      playDefaultBeep(type);
+    }
+  };
+
+  const playDefaultBeep = (type) => {
+    if (type === "orderAlert") {
+      playWebAudioBeep([
+        { freq: 880, start: 0,    duration: 0.15 },
+        { freq: 660, start: 0.2,  duration: 0.15 },
+        { freq: 880, start: 0.4,  duration: 0.15 },
+      ]);
+    } else {
+      playWebAudioBeep([{ freq: 1200, start: 0, duration: 0.3 }]);
     }
   };
 
