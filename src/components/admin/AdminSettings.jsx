@@ -150,12 +150,18 @@ function AdminSettings() {
 
   // ─── File Upload Logic ──────────────────────────────────────
   const handleAudioUpload = async (e, type) => {
-    // 1. Capture standard input event target metrics securely upfront
-    const file = e.target?.files?.[0];
+    // 1. Secure Input Metric Capture:
+    const inputElement = e.target;
+    const file = inputElement?.files?.[0];
+
     if (!file) {
       console.error("Audio upload failed: No file selected or file object lost.");
+      setUploadingOrder(false);
+      setUploadingCustomer(false);
       return;
     }
+
+    console.log("File detected:", file.name, file.size, file.type);
 
     const fileName = file.name;
     const fileType = file.type || "audio/mpeg";
@@ -169,63 +175,39 @@ function AdminSettings() {
       console.error("Audio upload failed:", errMsg);
       alert(errMsg);
       setUploadError(errMsg);
-      if (e.target) e.target.value = "";
+      if (inputElement) inputElement.value = "";
       return;
     }
 
     if (type === "orderAlert") setUploadingOrder(true);
     else setUploadingCustomer(true);
 
-    let audioBlob = null;
-
-    // Convert file to standard binary Blob and compress
     try {
-      console.log(`Processing audio file: ${fileName} (${fileType}, ${fileSize} bytes)`);
-      audioBlob = await compressAudio(file);
-      console.log(`Audio successfully compressed. New type: ${audioBlob.type}, size: ${audioBlob.size} bytes`);
-    } catch (compressionErr) {
-      console.error("Audio compression failed. Falling back to raw file conversion. Error:", compressionErr);
-      try {
-        // Fallback: convert raw file into a binary Blob data stream
-        audioBlob = new Blob([file], { type: fileType });
-        console.log(`Fallback to raw Blob successful. Type: ${audioBlob.type}, size: ${audioBlob.size} bytes`);
-      } catch (blobErr) {
-        console.error("Critical error: Failed to convert raw file to Blob binary stream:", blobErr);
-        setUploadError("Failed to process file binary stream.");
-        if (type === "orderAlert") setUploadingOrder(false);
-        else setUploadingCustomer(false);
-        if (e.target) e.target.value = "";
-        return;
-      }
-    }
+      // 2. Explicit File to Blob Conversion & Compression:
+      const arrayBuffer = await file.arrayBuffer();
+      const rawBlob = new Blob([arrayBuffer], { type: fileType });
 
-    // Cloud upload and IndexedDB fallback routing
-    try {
-      console.log(`Initiating Firebase Storage upload for ${type}...`);
-      const storageRef = ref(storage, `notification_sounds/${currentUser.uid}_${type}_sound`);
-      
-      // Pass the pure file data binary with preserved type metadata to Firebase
-      await uploadBytes(storageRef, audioBlob, { contentType: audioBlob.type });
-      const downloadUrl = await getDownloadURL(storageRef);
-      console.log("Firebase upload successful. Download URL:", downloadUrl);
-
-      await updateField(type, "audioUrl", downloadUrl);
-      
-      if (type === "orderAlert") {
-        setUploadSuccessOrder(true);
-        setTimeout(() => setUploadSuccessOrder(false), 2000);
-      } else {
-        setUploadSuccessCustomer(true);
-        setTimeout(() => setUploadSuccessCustomer(false), 2000);
-      }
-    } catch (firebaseErr) {
-      console.error("Firebase Storage upload failed. Routing to local IndexedDB fallback. Error:", firebaseErr);
-      
+      let audioBlob = null;
       try {
-        console.log(`Saving pure audio binary to local IndexedDB with type: ${audioBlob.type}`);
-        await saveAudioToLocalDB(type, audioBlob);
-        await updateField(type, "audioUrl", `localDB:${type}`);
-        console.log(`Successfully saved audio to local IndexedDB under key: ${type}`);
+        console.log(`Processing audio compression for: ${fileName}`);
+        audioBlob = await compressAudio(rawBlob);
+        console.log(`Audio successfully compressed. New type: ${audioBlob.type}, size: ${audioBlob.size} bytes`);
+      } catch (compressionErr) {
+        console.error("Audio compression failed. Falling back to raw Blob binary stream. Error:", compressionErr);
+        audioBlob = rawBlob;
+      }
+
+      // 3. Fortify Cloud & Local DB Preservation:
+      try {
+        console.log(`Initiating Firebase Storage upload for ${type}...`);
+        const storageRef = ref(storage, `notification_sounds/${currentUser.uid}_${type}_sound`);
+        
+        // Pass the pure file data binary with preserved type metadata to Firebase
+        await uploadBytes(storageRef, audioBlob, { contentType: audioBlob.type });
+        const downloadUrl = await getDownloadURL(storageRef);
+        console.log("Firebase upload successful. Download URL:", downloadUrl);
+
+        await updateField(type, "audioUrl", downloadUrl);
         
         if (type === "orderAlert") {
           setUploadSuccessOrder(true);
@@ -234,26 +216,46 @@ function AdminSettings() {
           setUploadSuccessCustomer(true);
           setTimeout(() => setUploadSuccessCustomer(false), 2000);
         }
+      } catch (firebaseErr) {
+        console.warn("Cloud upload blocked, falling back to local DB:", firebaseErr);
+        
+        try {
+          console.log(`Saving pure audio binary to local IndexedDB under key: ${type}`);
+          await saveAudioToLocalDB(type, audioBlob);
+          await updateField(type, "audioUrl", `localDB:${type}`);
+          console.log(`Successfully saved audio to local IndexedDB`);
+          
+          if (type === "orderAlert") {
+            setUploadSuccessOrder(true);
+            setTimeout(() => setUploadSuccessOrder(false), 2000);
+          } else {
+            setUploadSuccessCustomer(true);
+            setTimeout(() => setUploadSuccessCustomer(false), 2000);
+          }
 
-        // Immediately clear loading flag so UI unfreezes before blocking alert
-        if (type === "orderAlert") setUploadingOrder(false);
-        else setUploadingCustomer(false);
+          // Immediately clear loading flags so UI unfreezes before blocking alert
+          setUploadingOrder(false);
+          setUploadingCustomer(false);
 
-        setTimeout(() => {
-          alert("Cloud upload failed due to network rules, using local browser fallback...");
-        }, 50);
+          setTimeout(() => {
+            alert("Cloud upload failed due to network rules, using local browser fallback...");
+          }, 50);
 
-      } catch (localDbErr) {
-        console.error("Critical error: Local IndexedDB fallback also failed. Error:", localDbErr);
-        setUploadError("Failed to upload audio and local fallback also failed.");
-        alert("Critical Error: Audio file upload and local storage fallback both failed.");
+        } catch (localDbErr) {
+          console.error("Critical error: Local IndexedDB fallback also failed. Error:", localDbErr);
+          setUploadError("Failed to upload audio and local fallback also failed.");
+          alert("Critical Error: Audio file upload and local storage fallback both failed.");
+        }
       }
+    } catch (processErr) {
+      console.error("File reading or processing stream broke:", processErr);
+      setUploadError("An error occurred during file processing.");
+      alert("Error occurred during file processing.");
     } finally {
-      // Guarantee State Resets in a finally Block
-      if (type === "orderAlert") setUploadingOrder(false);
-      else setUploadingCustomer(false);
-      
-      if (e.target) e.target.value = "";
+      // 4. Guaranteed Interface Reset:
+      if (inputElement) inputElement.value = "";
+      setUploadingOrder(false);
+      setUploadingCustomer(false);
     }
   };
 
