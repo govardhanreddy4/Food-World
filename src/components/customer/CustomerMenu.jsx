@@ -289,7 +289,7 @@ function MenuItemCard({ item, cartQty, onAdd, onRemove }) {
 }
 
 // ─── Cart Checkout Panel ──────────────────────────────────────────────────────
-function CartPanel({ cart, tableId, onConfirm, onClose, confirming }) {
+function CartPanel({ cart, tableId, onConfirm, onClose, confirming, fulfillmentType, setFulfillmentType, isParcelQR }) {
   const [notes, setNotes] = useState("");
   const MAX_NOTES = 200;
 
@@ -321,12 +321,47 @@ function CartPanel({ cart, tableId, onConfirm, onClose, confirming }) {
         </div>
 
         {/* Table badge */}
-        <div
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl mb-4 text-xs font-semibold"
-          style={{ background: "rgba(99,102,241,0.12)", color: "#6366f1" }}
-        >
-          🪑 Table {tableId}
+        <div className="flex items-center gap-2 mb-4">
+          <div
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
+            style={{ background: "rgba(99,102,241,0.12)", color: "#6366f1" }}
+          >
+            {isParcelQR ? "🛍️ Takeaway Counter" : `🪑 Table ${tableId}`}
+          </div>
         </div>
+
+        {/* Fulfillment Type Selection */}
+        {!isParcelQR && (
+          <div className="mb-5">
+            <label className="text-[#1A1A1A] text-sm font-semibold mb-2 block">
+              Dining Preference
+            </label>
+            <div className="flex gap-4">
+              <button 
+                type="button"
+                onClick={() => setFulfillmentType("dine-in")}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm rounded-xl transition-all duration-200 ${
+                  fulfillmentType === "dine-in" 
+                    ? "bg-indigo-600 text-white font-extrabold shadow-lg shadow-indigo-600/20 scale-[1.02] border border-indigo-600" 
+                    : "bg-white/50 text-gray-500 font-semibold border border-gray-200/80 hover:bg-white hover:text-gray-700"
+                }`}
+              >
+                <span className="text-base">🍽️</span> Dine-In
+              </button>
+              <button 
+                type="button"
+                onClick={() => setFulfillmentType("parcel")}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm rounded-xl transition-all duration-200 ${
+                  fulfillmentType === "parcel" 
+                    ? "bg-orange-600 text-white font-extrabold shadow-lg shadow-orange-600/20 scale-[1.02] border border-orange-600" 
+                    : "bg-white/50 text-gray-500 font-semibold border border-gray-200/80 hover:bg-white hover:text-gray-700"
+                }`}
+              >
+                <span className="text-base">🛍️</span> Takeaway
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Cart Items */}
         <div className="space-y-2 mb-4">
@@ -411,6 +446,9 @@ function CustomerMenu() {
   const navigate          = useNavigate();
   const tableId           = searchParams.get("table") || "";
   const resId             = searchParams.get("resId") || "";
+  const isParcelQR        = tableId.toUpperCase() === "PARCEL";
+
+  const [fulfillmentType, setFulfillmentType] = useState(isParcelQR ? "parcel" : "dine-in");
 
   const [menuItems, setMenuItems]       = useState([]);
   const [categories, setCategories]     = useState([]);
@@ -516,6 +554,7 @@ function CustomerMenu() {
         const batchPayload = {
           id:        Date.now().toString(),
           status:    "Pending",
+          fulfillmentType: isParcelQR ? "parcel" : fulfillmentType,
           items: cart.map((i) => ({
             id:       i.id,
             name:     i.name,
@@ -553,9 +592,10 @@ function CustomerMenu() {
           // ── Create new order session ──────────────────────────
           const newOrderRef = await addDoc(collection(db, COLLECTIONS.ORDERS), {
             tableNumber:  String(tableId),
-            restaurantId:  String(resId),
+            restaurantId: String(resId),
             status:       "Pending",
             active:       true,
+            fulfillmentType: isParcelQR ? "parcel" : fulfillmentType,
             totalAmount:  cartTotal,
             orderBatches: [batchPayload],
             createdAt:    serverTimestamp(),
@@ -582,7 +622,7 @@ function CustomerMenu() {
         setConfirming(false);
       }
     },
-    [cart, tableId, resId, cartTotal, navigate]
+    [cart, tableId, resId, cartTotal, navigate, fulfillmentType, isParcelQR]
   );
 
   // ── No resId param guard ──────────────────────────────────────
@@ -659,7 +699,7 @@ function CustomerMenu() {
               Welcome to {restaurantName}!
             </h2>
             <p className="text-white/70 text-sm font-medium relative z-10 mb-6">
-              Table {tableId} <span className="text-white/30 mx-1">•</span> Self-Ordering Menu
+              {isParcelQR ? "Takeaway / Parcel Ordering" : `Table ${tableId} • Self-Ordering Menu`}
             </p>
             <p className="text-white/40 text-xs font-semibold relative z-10 animate-pulse">
               [ Tap anywhere to continue ]
@@ -694,7 +734,7 @@ function CustomerMenu() {
                 border: "1px solid rgba(99,102,241,0.3)",
               }}
             >
-              🪑 Table {tableId}
+              {isParcelQR ? "🛍️ Takeaway" : `🪑 Table ${tableId}`}
             </span>
             {/* Cart button */}
             {cartCount > 0 && (
@@ -850,6 +890,9 @@ function CustomerMenu() {
           confirming={confirming}
           onConfirm={handleConfirmOrder}
           onClose={() => setCartOpen(false)}
+          fulfillmentType={fulfillmentType}
+          setFulfillmentType={setFulfillmentType}
+          isParcelQR={isParcelQR}
         />
       )}
     </div>

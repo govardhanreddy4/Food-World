@@ -25,6 +25,7 @@ import {
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getStorage }                 from "firebase/storage";
 import { getAnalytics }               from "firebase/analytics";
+import { getMessaging }               from "firebase/messaging";
 
 // ─── Firebase Project Configuration ─────────────────────────────────────────
 // Reads from .env at build-time via Vite's static replacement.
@@ -93,6 +94,16 @@ googleProvider.setCustomParameters({ prompt: "select_account" });
  * Storage rules: public read, authenticated-admin-only write.
  */
 export const storage = getStorage(app);
+
+// ─── Firebase Cloud Messaging ────────────────────────────────────────────────
+// Export messaging instance (will be null if not supported by the browser)
+let messagingInstance = null;
+try {
+  messagingInstance = getMessaging(app);
+} catch (error) {
+  console.warn("Firebase Messaging initialization failed. Push notifications may not be supported in this environment.", error);
+}
+export const messaging = messagingInstance;
 
 // ─── Firestore Collection Name Registry ──────────────────────────────────────
 // Single source of truth for all collection names — prevents silent typos.

@@ -13,10 +13,8 @@ import {
   Volume2,
   AlertTriangle,
   Loader2,
-  CheckCircle2,
-  QrCode
+  CheckCircle2
 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
 
 const defaultSettings = {
   orderAlert: { audioUrl: "", duration: 15 },
@@ -33,11 +31,6 @@ function AdminSettings() {
   
   const orderFileInputRef = useRef(null);
   const customerFileInputRef = useRef(null);
-  
-  const [qrTableNumber, setQrTableNumber] = useState("");
-  const qrUrl = qrTableNumber 
-    ? `https://tadipatri-food-world.vercel.app/?table=${encodeURIComponent(qrTableNumber)}` 
-    : "";
 
   const [uploadingOrder, setUploadingOrder] = useState(false);
   const [uploadingCustomer, setUploadingCustomer] = useState(false);
@@ -490,63 +483,7 @@ function AdminSettings() {
           </div>
         </div>
 
-        {/* Table QR Code Generator */}
-        <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden mt-4 md:mt-6 col-span-1 lg:col-span-2" style={glassCard}>
-          <div className="flex items-center gap-3 mb-4 md:mb-6">
-            <div className="p-2 md:p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              <QrCode size={18} md:size={20} />
-            </div>
-            <div>
-              <h2 className="text-white font-bold text-base md:text-lg">Table QR Code Generator</h2>
-              <p className="text-white/40 text-[11px] md:text-xs mt-0.5">Generate high-resolution QR codes for physical table printing</p>
-            </div>
-          </div>
-          
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            <div className="w-full md:w-1/2 space-y-4">
-              <div>
-                <label className="block text-xs md:text-sm font-semibold text-white/70 mb-1.5 md:mb-2">
-                  Table Number / Identifier
-                </label>
-                <input
-                  type="text"
-                  value={qrTableNumber}
-                  onChange={(e) => setQrTableNumber(e.target.value)}
-                  placeholder="e.g., 5 or VIP-1"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50"
-                />
-              </div>
-              
-              {qrUrl && (
-                <div className="p-3 rounded-xl bg-white/5 border border-white/10 break-all">
-                  <p className="text-[10px] uppercase text-white/40 font-bold mb-1">Generated URL:</p>
-                  <p className="text-xs text-indigo-300 font-mono">{qrUrl}</p>
-                </div>
-              )}
-            </div>
 
-            <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 bg-white/5 border border-white/10 rounded-xl">
-              {qrUrl ? (
-                <div className="bg-white p-4 rounded-xl shadow-lg">
-                  <QRCodeSVG
-                    value={qrUrl}
-                    size={200}
-                    level="H"
-                    includeMargin={true}
-                  />
-                </div>
-              ) : (
-                <div className="w-[200px] h-[200px] border-2 border-dashed border-white/20 rounded-xl flex items-center justify-center text-white/30 text-sm font-medium">
-                  Enter a Table Number
-                </div>
-              )}
-              
-              <p className="text-white/40 text-[11px] mt-4 text-center">
-                Right-click the QR code and select "Save image as..." to download a crisp SVG for printing.
-              </p>
-            </div>
-          </div>
-        </div>
 
       </div>
     </div>

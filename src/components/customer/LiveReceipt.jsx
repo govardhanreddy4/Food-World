@@ -41,13 +41,13 @@ function clearStoredSession(tableId) {
 }
 
 // ─── Status badge styles ──────────────────────────────────────────────────────
-function StatusBadge({ status }) {
+function StatusBadge({ status, isParcel = false }) {
   const norm = (status || "").toLowerCase();
   const styles = {
     pending:          { bg: "rgba(239,68,68,0.12)",   color: "#ef4444", label: "Sent to Kitchen" },
     preparing:        { bg: "rgba(245,158,11,0.12)",  color: "#f59e0b", label: "Being Prepared 🔥" },
     ready:            { bg: "rgba(59,130,246,0.12)",  color: "#3b82f6", label: "Ready to Serve 🍽️" },
-    served:           { bg: "rgba(16,185,129,0.12)",  color: "#10b981", label: "Served ✓" },
+    served:           { bg: "rgba(16,185,129,0.12)",  color: "#10b981", label: isParcel ? "Handed Over ✓" : "Served ✓" },
     active:           { bg: "rgba(99,102,241,0.12)",  color: "#6366f1", label: "Session Active" },
     "completed/paid": { bg: "rgba(107,114,128,0.12)", color: "#6b7280", label: "Completed & Paid" },
   };
@@ -238,12 +238,21 @@ function LiveReceipt() {
                 className="flex items-center justify-between px-4 py-2.5"
                 style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <ChefHat size={14} className="text-indigo-500" />
-                  <span className="text-[#1A1A1A] font-bold text-xs mr-2">
+                  <span className="text-[#1A1A1A] font-bold text-xs mr-1">
                     Order {idx + 1}
                   </span>
-                  <StatusBadge status={batch.status || "Pending"} />
+                  <StatusBadge status={batch.status || "Pending"} isParcel={(batch.fulfillmentType || order?.fulfillmentType || "dine-in") === "parcel"} />
+                  {(batch.fulfillmentType || order?.fulfillmentType || "dine-in") === "parcel" ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-orange-100 text-orange-600 border border-orange-200">
+                      🛍️ Takeaway / Parcel
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                      🍽️ Dine-In
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 text-gray-400 text-xs">
                   <Clock size={11} />

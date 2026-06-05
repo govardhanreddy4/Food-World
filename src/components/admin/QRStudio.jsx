@@ -199,10 +199,18 @@ function QRStudio() {
 
           {/* Table ID input */}
           <div className="p-5 rounded-2xl" style={glassCard}>
-            <label className="flex items-center gap-2 text-white/60 text-xs mb-2">
-              <Table2 size={13} />
-              Table Identifier
-            </label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="flex items-center gap-2 text-white/60 text-xs">
+                <Table2 size={13} />
+                Table Identifier
+              </label>
+              <button
+                onClick={() => setTableId("PARCEL")}
+                className="text-xs font-semibold bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 px-2.5 py-1 rounded-lg transition-colors border border-orange-500/20 flex items-center gap-1.5 shadow-sm"
+              >
+                <span>🛍️</span> Counter Parcel QR
+              </button>
+            </div>
             <input
               id="qr-table-input"
               type="text"

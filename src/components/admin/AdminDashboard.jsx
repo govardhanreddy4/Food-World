@@ -27,9 +27,11 @@ import {
   serverTimestamp,
   runTransaction,
 } from "firebase/firestore";
-import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
+import { db, COLLECTIONS, messaging } from "../../firebase/firebaseConfig";
+import { getToken, onMessage } from "firebase/messaging";
 import { useElapsedTimer } from "../../hooks/useElapsedTimer";
 import { useAuth } from "../../context/AuthContext";
+import { audioController } from "../../utils/AudioController";
 import {
   Bell,
   CheckCircle,
@@ -79,32 +81,6 @@ const STATUS_CONFIG = {
   },
 };
 
-// ─── Web Audio API Alert Beep ─────────────────────────────────────────────────
-function playDefaultBeep() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const tones = [
-      { freq: 880, start: 0,    duration: 0.15 },
-      { freq: 660, start: 0.2,  duration: 0.15 },
-      { freq: 880, start: 0.4,  duration: 0.15 },
-    ];
-    tones.forEach(({ freq, start, duration }) => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime + start);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
-      osc.start(ctx.currentTime + start);
-      osc.stop(ctx.currentTime + start + duration + 0.05);
-    });
-  } catch {
-    // Audio API not supported — fail silently
-  }
-}
-
 // ─── Kitchen Timer Sub-Component ──────────────────────────────────────────────
 // ─── Kitchen Timer Sub-Component ──────────────────────────────────────────────
 function OrderTimer({ timestamp, status }) {
@@ -140,7 +116,6 @@ function AdminDashboard() {
   const prevPendingBatchIds           = useRef(new Set());
   const isInitialOrdersLoad           = useRef(true);
   const [activeAlarmOrder, setActiveAlarmOrder] = useState(null);
-  const beepIntervalRef               = useRef(null);
   const [updatingBatches, setUpdatingBatches] = useState(new Set());
   const updatingBatchesRef            = useRef(new Set());
 
@@ -151,7 +126,52 @@ function AdminDashboard() {
 
   // ── Settings & Audio State ──────────────────────────────────────
   const [settings, setSettings] = useState(null);
-  const audioRef = useRef(null);
+
+  // ── Setup Service Worker & FCM ──────────────────────────────────
+  useEffect(() => {
+    if (!messaging || !currentUser) return;
+
+    const setupPushNotifications = async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const swUrl = `/firebase-messaging-sw.js?apiKey=${import.meta.env.VITE_FIREBASE_API_KEY}&projectId=${import.meta.env.VITE_FIREBASE_PROJECT_ID}&messagingSenderId=${import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID}&appId=${import.meta.env.VITE_FIREBASE_APP_ID}`;
+          const registration = await navigator.serviceWorker.register(swUrl);
+          
+          const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+          if (vapidKey) {
+            const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
+            if (token) {
+              await updateDoc(doc(db, COLLECTIONS.SETTINGS, currentUser.uid), {
+                fcmToken: token,
+                updatedAt: serverTimestamp()
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Push notification setup failed:", err);
+      }
+    };
+    setupPushNotifications();
+
+    const unsubscribeMessage = onMessage(messaging, (payload) => {
+      // AudioController will handle concurrency
+      audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15);
+    });
+
+    const handleSWMessage = (event) => {
+      if (event.data && event.data.type === 'FCM_BACKGROUND_MESSAGE') {
+        audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handleSWMessage);
+
+    return () => {
+      if (unsubscribeMessage) unsubscribeMessage();
+      navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+    };
+  }, [currentUser, messaging, settings]);
 
   useEffect(() => {
     if (!currentUser?.uid) return;
@@ -162,34 +182,12 @@ function AdminDashboard() {
   }, [currentUser?.uid]);
 
   const playOrderAlert = async (newOrder) => {
-    if (localStorage.getItem("fw_admin_muted") === "true") return;
-
-    stopAlarm();
     setActiveAlarmOrder(newOrder);
-
-    const localAudioBase64 = localStorage.getItem("custom_order_sound");
-    
-    if (localAudioBase64) {
-      const audio = new Audio(localAudioBase64);
-      audioRef.current = audio;
-      audio.loop = true;
-      audio.play().catch(console.error);
-    } else {
-      beepIntervalRef.current = setInterval(playDefaultBeep, 2000);
-      playDefaultBeep();
-    }
+    audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15);
   };
 
   const stopAlarm = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-    if (beepIntervalRef.current) {
-      clearInterval(beepIntervalRef.current);
-      beepIntervalRef.current = null;
-    }
+    audioController.stopAll();
     setActiveAlarmOrder(null);
   };
 
@@ -347,6 +345,49 @@ function AdminDashboard() {
     setUpdatingBatches(new Set(updatingBatchesRef.current));
   }
 
+  // ── Toggle Fulfillment Type ─────────────────────────────────────
+  async function toggleFulfillment(orderId, currentType) {
+    const newType = currentType === 'parcel' ? 'dine-in' : 'parcel';
+    try {
+      await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
+        fulfillmentType: newType,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.error("Failed to toggle fulfillment type:", err);
+    }
+  }
+
+  // ── Toggle Batch Fulfillment Type ─────────────────────────────────────
+  async function toggleBatchFulfillment(orderId, batchId, currentType) {
+    const newType = currentType === 'parcel' ? 'dine-in' : 'parcel';
+    try {
+      await runTransaction(db, async (transaction) => {
+        const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
+        const orderSnap = await transaction.get(orderRef);
+        if (!orderSnap.exists()) throw new Error("Order does not exist!");
+        
+        const data = orderSnap.data();
+        const batches = data.orderBatches || [];
+        const bIdx = batches.findIndex((b) => b.id === batchId);
+        
+        if (bIdx === -1) {
+          console.warn("Batch not found in Firestore!");
+          return;
+        }
+        
+        batches[bIdx].fulfillmentType = newType;
+        
+        transaction.update(orderRef, {
+          orderBatches: batches,
+          updatedAt: serverTimestamp(),
+        });
+      });
+    } catch (err) {
+      console.error("Failed to toggle batch fulfillment type:", err);
+    }
+  }
+
   // ── Archive Table (Settle Order) ──────────────────────────────
   async function archiveOrder(orderId, paymentSplit = null) {
     setOrders((prev) =>
@@ -417,7 +458,7 @@ function AdminDashboard() {
   };
 
   // ── Helper: get status pill styling ───────────────────────────
-  const getBatchStatusBadge = (status) => {
+  const getBatchStatusBadge = (status, isParcel = false) => {
     const norm = (status || "pending").toLowerCase();
     const styles = {
       pending: "bg-red-500/10 text-red-400 border border-red-500/20",
@@ -429,7 +470,7 @@ function AdminDashboard() {
       pending: "Pending",
       preparing: "Preparing",
       ready: "Ready",
-      served: "Served",
+      served: isParcel ? "Handed Over" : "Served",
     };
     const cls = styles[norm] || "bg-slate-500/10 text-slate-400 border border-slate-500/20";
     const lbl = names[norm] || status || "Pending";
@@ -441,7 +482,9 @@ function AdminDashboard() {
   };
 
   // ── Helper: render KDS actions ────────────────────────────────
-  const renderBatchActions = (orderId, batch) => {
+  const renderBatchActions = (order, batch) => {
+    const orderId = order.id;
+    const isParcel = (batch.fulfillmentType || order.fulfillmentType || 'dine-in') === 'parcel';
     const isUpdating = updatingBatches.has(batch.id);
     const norm = (batch.status || "pending").toLowerCase();
     
@@ -474,7 +517,7 @@ function AdminDashboard() {
           onClick={() => updateBatchStatus(orderId, batch.id, "Served")}
           className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg hover:opacity-90 transition-all shadow-sm disabled:opacity-70 flex justify-center items-center gap-1.5"
         >
-          {isUpdating ? <><Loader2 size={14} className="animate-spin"/> Updating...</> : "Serve to Table"}
+          {isUpdating ? <><Loader2 size={14} className="animate-spin"/> Updating...</> : (isParcel ? "Hand Over to Customer" : "Serve to Table")}
         </button>
       );
     }
@@ -633,7 +676,12 @@ function AdminDashboard() {
                       {/* Table No. */}
                       <td className="py-4 px-4 align-top font-bold text-sm">
                         <div className="flex flex-col gap-1.5 items-start">
-                          <span className="text-white text-base">Table {order.tableNumber}</span>
+                          <span className="text-white text-base">
+                            {String(order.tableNumber).toUpperCase() === 'PARCEL' ? 'Parcel' : `Table ${order.tableNumber}`}
+                          </span>
+                          {order.fulfillmentType === 'parcel' && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">🛍️ TAKEAWAY</span>
+                          )}
                           <OrderTimer timestamp={latestTimestamp} status={order.status} />
                         </div>
                       </td>
@@ -641,14 +689,33 @@ function AdminDashboard() {
                       <td className="py-4 px-4 align-top">
                         <div className="space-y-3 max-w-lg">
                           {order.orderBatches?.map((batch, bIdx) => (
-                            <div key={bIdx} className="text-xs bg-white/5 rounded-xl p-3 border border-white/5 shadow-sm">
-                              <div className="flex justify-between items-center mb-2">
-                                <div className="flex items-center gap-2">
+                            <div 
+                              key={bIdx} 
+                              className={`text-xs rounded-xl p-3 border shadow-sm transition-all ${
+                                (batch.fulfillmentType || order.fulfillmentType || 'dine-in') === 'parcel'
+                                  ? 'bg-orange-500/10 border-orange-500/30'
+                                  : 'bg-white/5 border-white/5'
+                              }`}
+                            >
+                              <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-white/50 font-mono text-[10px] uppercase tracking-wider">Batch {bIdx + 1}</span>
-                                  {getBatchStatusBadge(batch.status)}
+                                  {getBatchStatusBadge(batch.status, (batch.fulfillmentType || order.fulfillmentType || 'dine-in') === 'parcel')}
+                                  
+                                  {/* Batch-level fulfillment badge */}
+                                  {(batch.fulfillmentType || order.fulfillmentType || 'dine-in') === 'parcel' ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                                      🛍️ Takeaway / Parcel
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                                      🍽️ Dine-In
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  {renderBatchActions(order.id, batch)}
+                                  {renderBatchActions(order, batch)}
+                                  
                                   {batch.timestamp && (
                                     <span className="text-[10px] text-white/30 font-mono">
                                       {new Date(batch.timestamp?.toDate?.() || batch.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -715,12 +782,21 @@ function AdminDashboard() {
                 return (
                   <div key={order.id} className="bg-white/5 border border-white/10 rounded-xl flex flex-col overflow-hidden shadow-lg">
                     {/* Header: Table No & Timer */}
-                    <div className="flex justify-between items-start p-3 md:p-4 border-b border-white/5 bg-black/20">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-bold text-white text-base md:text-lg">Table {order.tableNumber}</span>
-                        <span className={`px-2 py-1 rounded-full text-[10px] font-semibold w-fit ${order.active ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" : "bg-slate-500/10 text-slate-400 border border-slate-500/20"}`}>
-                          {order.active ? "Active" : "Completed"}
-                        </span>
+                    <div className={`flex justify-between items-start p-3 md:p-4 border-b border-white/5 ${order.fulfillmentType === 'parcel' ? 'bg-orange-500/10' : 'bg-black/20'}`}>
+                      <div className="flex flex-col gap-1 items-start">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-base md:text-lg">
+                            {String(order.tableNumber).toUpperCase() === 'PARCEL' ? 'Parcel' : `Table ${order.tableNumber}`}
+                          </span>
+                          {order.fulfillmentType === 'parcel' && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">🛍️ TAKEAWAY</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-semibold w-fit ${order.active ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" : "bg-slate-500/10 text-slate-400 border border-slate-500/20"}`}>
+                            {order.active ? "Active" : "Completed"}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <span className="text-white font-bold text-base md:text-lg">₹{Number(order.totalAmount || 0).toFixed(2)}</span>
@@ -732,18 +808,40 @@ function AdminDashboard() {
                     <div className="p-3 md:p-4 space-y-3 md:space-y-4">
                       {order.orderBatches?.map((batch, bIdx) => {
                         const bStatus = (batch.status || "").toLowerCase();
+                        const batchFulfillment = batch.fulfillmentType || order.fulfillmentType || 'dine-in';
+                        const isParcelBatch = batchFulfillment === 'parcel';
                         return (
-                          <div key={bIdx} className="text-xs bg-white/5 rounded-xl p-3 md:p-4 border border-white/5 shadow-sm">
-                            <div className="flex justify-between items-center mb-2 md:mb-3">
-                              <div className="flex items-center gap-2">
+                          <div 
+                            key={bIdx} 
+                            className={`text-xs rounded-xl p-3 md:p-4 border shadow-sm transition-all ${
+                              isParcelBatch
+                                ? 'bg-orange-500/10 border-orange-500/30'
+                                : 'bg-white/5 border-white/5'
+                            }`}
+                          >
+                            <div className="flex justify-between items-center mb-2 md:mb-3 flex-wrap gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-white/50 font-mono text-[10px] uppercase tracking-wider">Batch {bIdx + 1}</span>
-                                {getBatchStatusBadge(batch.status)}
+                                {getBatchStatusBadge(batch.status, isParcelBatch)}
+                                
+                                {/* Batch-level fulfillment badge */}
+                                {isParcelBatch ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                                    🛍️ Takeaway / Parcel
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                                    🍽️ Dine-In
+                                  </span>
+                                )}
                               </div>
-                              {batch.timestamp && (
-                                <span className="text-[10px] text-white/30 font-mono">
-                                  {new Date(batch.timestamp?.toDate?.() || batch.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                </span>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {batch.timestamp && (
+                                  <span className="text-[10px] text-white/30 font-mono">
+                                    {new Date(batch.timestamp?.toDate?.() || batch.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div className="space-y-1 md:space-y-2">
                               {batch.items?.map((item, i) => (
@@ -805,7 +903,7 @@ function AdminDashboard() {
                                       }}
                                       className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-70 flex justify-center items-center gap-2"
                                     >
-                                      {isUpdating ? <><Loader2 size={16} className="animate-spin"/> Updating...</> : "Serve to Table"}
+                                      {isUpdating ? <><Loader2 size={16} className="animate-spin"/> Updating...</> : (isParcelBatch ? "Hand Over to Customer" : "Serve to Table")}
                                     </button>
                                   );
                                 }
