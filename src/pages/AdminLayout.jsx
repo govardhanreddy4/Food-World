@@ -42,6 +42,7 @@ import {
 } from "firebase/firestore";
 import { getToken, onMessage } from "firebase/messaging";
 import { audioController } from "../utils/AudioController";
+import { runDatabasePruner } from "../utils/DatabasePruner";
 
 const NAV_ITEMS = [
   { to: "/admin",          label: "Dashboard",    icon: LayoutDashboard, end: true },
@@ -206,6 +207,17 @@ function AdminLayout() {
     });
     return () => unsub();
   }, [currentUser?.uid]);
+
+  // ── Run Database Pruner ───────────────────────────────────────
+  const prunerRanRef = useRef(false);
+  useEffect(() => {
+    if (!currentUser?.uid || !settings || prunerRanRef.current) return;
+    
+    if (settings.retentionDays && settings.retentionDays > 0) {
+      prunerRanRef.current = true;
+      runDatabasePruner(currentUser.uid, settings.retentionDays);
+    }
+  }, [currentUser?.uid, settings]);
 
   const playChime = async (newCall) => {
     if (isMuted) return;

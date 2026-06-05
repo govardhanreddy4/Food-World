@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { compressAudio } from "../../utils/audioCompression";
+import { saveAudioToLocalDB } from "../../utils/audioStorage";
 import { useAuth } from "../../context/AuthContext";
 import {
   Settings as SettingsIcon,
@@ -19,7 +20,8 @@ import {
 
 const defaultSettings = {
   orderAlert: { audioUrl: "", duration: 15 },
-  customerAlert: { audioUrl: "", duration: 15 }
+  customerAlert: { audioUrl: "", duration: 15 },
+  retentionDays: 30
 };
 
 function AdminSettings() {
@@ -45,6 +47,34 @@ function AdminSettings() {
 
   const audioRefOrder = useRef(null);
   const audioRefCustomer = useRef(null);
+
+  const [retentionDaysInput, setRetentionDaysInput] = useState(30);
+
+  // Sync retentionDays input when settings load
+  useEffect(() => {
+    if (settings.retentionDays !== undefined) {
+      setRetentionDaysInput(settings.retentionDays);
+    }
+  }, [settings.retentionDays]);
+
+  const handleSaveRetentionPolicy = async () => {
+    const parsed = parseInt(retentionDaysInput, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      try {
+        const updated = {
+          ...settings,
+          retentionDays: parsed
+        };
+        setSettings(updated);
+        await setDoc(doc(db, COLLECTIONS.SETTINGS, currentUser.uid), updated, { merge: true });
+        alert("Retention Policy Saved!");
+      } catch (err) {
+        console.error("Failed to save retention policy:", err);
+      }
+    } else {
+      alert("Please enter a valid positive number for retention days.");
+    }
+  };
 
   // ─── Fetch Settings ─────────────────────────────────────────
   useEffect(() => {
@@ -124,9 +154,10 @@ function AdminSettings() {
 
     setUploadError(""); // clear previous errors
 
-    // Strict 10MB limit
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError("File too large. Please upload an alert audio file under 10MB.");
+    // Strict 2MB limit
+    if (file.size > 2 * 1024 * 1024) {
+      alert("File too large! Please upload an audio file under 2MB.");
+      setUploadError("File too large. Please upload an alert audio file under 2MB.");
       e.target.value = ""; // clear the input
       return;
     }
@@ -134,10 +165,16 @@ function AdminSettings() {
     if (type === "orderAlert") setUploadingOrder(true);
     else setUploadingCustomer(true);
 
+    let compressedBlob;
     try {
       // Compress audio to reduce size and upload to Firebase Storage
-      const compressedBlob = await compressAudio(file);
-      
+      compressedBlob = await compressAudio(file);
+    } catch (err) {
+      console.error("Audio compression failed:", err);
+      compressedBlob = file; // Fallback to raw file if compression fails
+    }
+
+    try {
       const storageRef = ref(storage, `notification_sounds/${currentUser.uid}_${type}_sound`);
       await uploadBytes(storageRef, compressedBlob);
       const downloadUrl = await getDownloadURL(storageRef);
@@ -152,8 +189,24 @@ function AdminSettings() {
         setTimeout(() => setUploadSuccessCustomer(false), 2000);
       }
     } catch (err) {
-      console.error("Upload/Compression error:", err);
-      setUploadError("Failed to upload audio to Cloud Storage. Please try again.");
+      console.error("Upload error:", err);
+      alert("Upload failed, using local browser fallback...");
+      
+      try {
+        await saveAudioToLocalDB(type, compressedBlob);
+        await updateField(type, "audioUrl", `localDB:${type}`);
+        
+        if (type === "orderAlert") {
+          setUploadSuccessOrder(true);
+          setTimeout(() => setUploadSuccessOrder(false), 2000);
+        } else {
+          setUploadSuccessCustomer(true);
+          setTimeout(() => setUploadSuccessCustomer(false), 2000);
+        }
+      } catch (fallbackErr) {
+        console.error("Local fallback also failed:", fallbackErr);
+        setUploadError("Failed to upload audio and local fallback also failed.");
+      }
     } finally {
       if (type === "orderAlert") setUploadingOrder(false);
       else setUploadingCustomer(false);
@@ -462,6 +515,46 @@ function AdminSettings() {
         </div>
 
 
+
+        {/* Database Retention Policy */}
+        <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden mt-6" style={glassCard}>
+          <div className="flex items-center gap-3 mb-4 md:mb-6">
+            <div className="p-2 md:p-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20">
+              <AlertTriangle size={18} md:size={20} />
+            </div>
+            <div>
+              <h2 className="text-white font-bold text-base md:text-lg">🧹 Database Retention Policy</h2>
+              <p className="text-white/40 text-[11px] md:text-xs mt-0.5">Automatically prune old billing documents while keeping analytics intact.</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs md:text-sm font-semibold text-white/70 mb-1.5 md:mb-2">
+                Keep itemized bills for (Days)
+              </label>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <input
+                  type="number"
+                  min="1"
+                  value={retentionDaysInput}
+                  onChange={(e) => setRetentionDaysInput(e.target.value)}
+                  className="w-full sm:w-32 bg-white/5 border border-white/10 rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50"
+                  placeholder="e.g. 30"
+                />
+                <button
+                  onClick={handleSaveRetentionPolicy}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20"
+                >
+                  Save Retention Policy
+                </button>
+              </div>
+              <p className="text-white/30 text-[10px] mt-2">
+                Records older than this limit will be deleted to optimize storage. Daily aggregate snapshots will be permanently saved for analytics.
+              </p>
+            </div>
+          </div>
+        </div>
 
       </div>
     </div>

@@ -1,77 +1,66 @@
-export const AudioStorage = {
-  async saveAudio(key, base64String) {
-    return new Promise((resolve, reject) => {
-      try {
-        const request = indexedDB.open("AudioStorageDB", 1);
-        request.onupgradeneeded = (e) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains("audioStore")) {
-            db.createObjectStore("audioStore");
-          }
-        };
-        request.onsuccess = (e) => {
-          const db = e.target.result;
-          const tx = db.transaction("audioStore", "readwrite");
-          const store = tx.objectStore("audioStore");
-          store.put(base64String, key);
-          tx.oncomplete = () => resolve();
-          tx.onerror = (err) => reject(err);
-        };
-        request.onerror = (err) => reject(err);
-      } catch (err) {
-        reject(err);
+/**
+ * audioStorage.js
+ * ---------------
+ * Lightweight IndexedDB wrapper to provide a robust fallback
+ * for storing custom alert audio when cloud uploads fail.
+ */
+
+const DB_NAME = "FoodWorldAudioDB";
+const STORE_NAME = "audioBlobs";
+const DB_VERSION = 1;
+
+function getDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
       }
-    });
-  },
-  async getAudio(key) {
+    };
+
+    request.onsuccess = (event) => resolve(event.target.result);
+    request.onerror = (event) => reject(event.target.error);
+  });
+}
+
+export const saveAudioToLocalDB = async (key, blob) => {
+  try {
+    const db = await getDB();
     return new Promise((resolve, reject) => {
-      try {
-        const request = indexedDB.open("AudioStorageDB", 1);
-        request.onupgradeneeded = (e) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains("audioStore")) {
-            db.createObjectStore("audioStore");
-          }
-        };
-        request.onsuccess = (e) => {
-          const db = e.target.result;
-          // If the store doesn't exist, we return null immediately
-          if (!db.objectStoreNames.contains("audioStore")) {
-            resolve(null);
-            return;
-          }
-          const tx = db.transaction("audioStore", "readonly");
-          const store = tx.objectStore("audioStore");
-          const getReq = store.get(key);
-          getReq.onsuccess = () => resolve(getReq.result);
-          getReq.onerror = (err) => reject(err);
-        };
-        request.onerror = (err) => reject(err);
-      } catch (err) {
-        reject(err);
-      }
+      const transaction = db.transaction([STORE_NAME], "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.put(blob, key);
+
+      request.onsuccess = () => resolve(true);
+      request.onerror = (event) => reject(event.target.error);
     });
-  },
-  async clearStorage() {
+  } catch (err) {
+    console.error("IndexedDB Save Error:", err);
+    throw err;
+  }
+};
+
+export const getAudioFromLocalDB = async (key) => {
+  try {
+    const db = await getDB();
     return new Promise((resolve, reject) => {
-      try {
-        const request = indexedDB.open("AudioStorageDB", 1);
-        request.onsuccess = (e) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains("audioStore")) {
-            resolve();
-            return;
-          }
-          const tx = db.transaction("audioStore", "readwrite");
-          const store = tx.objectStore("audioStore");
-          store.clear();
-          tx.oncomplete = () => resolve();
-          tx.onerror = (err) => reject(err);
-        };
-        request.onerror = (err) => reject(err);
-      } catch (err) {
-        reject(err);
+      const transaction = db.transaction([STORE_NAME], "readonly");
+      
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        resolve(null);
+        return;
       }
+      
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(key);
+
+      request.onsuccess = (event) => resolve(event.target.result);
+      request.onerror = (event) => reject(event.target.error);
     });
+  } catch (err) {
+    console.error("IndexedDB Get Error:", err);
+    throw err;
   }
 };

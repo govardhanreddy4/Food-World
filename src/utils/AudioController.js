@@ -6,6 +6,8 @@
  * they play sequentially rather than overlapping into distorted noise.
  */
 
+import { getAudioFromLocalDB } from "./audioStorage";
+
 class AudioController {
   constructor() {
     this.queue = [];
@@ -55,15 +57,34 @@ class AudioController {
   }
 
   playSound(type, duration, audioUrl) {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
       // Respect the global mute toggle if present
       if (localStorage.getItem("fw_admin_muted") === "true") {
         return resolve();
       }
 
       if (audioUrl && audioUrl !== "local" && audioUrl !== "") {
+        let finalAudioUrl = audioUrl;
+
+        // Check for localDB fallback prefix
+        if (audioUrl.startsWith("localDB:")) {
+          const key = audioUrl.split(":")[1];
+          try {
+            const blob = await getAudioFromLocalDB(key);
+            if (blob) {
+              finalAudioUrl = URL.createObjectURL(blob);
+            } else {
+              console.warn("Local DB audio blob not found, falling back to default beep.");
+              return this.playFallbackBeep(resolve, duration);
+            }
+          } catch (err) {
+            console.error("Failed to retrieve audio from IndexedDB:", err);
+            return this.playFallbackBeep(resolve, duration);
+          }
+        }
+
         try {
-          const audio = new Audio(audioUrl);
+          const audio = new Audio(finalAudioUrl);
           this.audioRef = audio;
           audio.loop = true;
           audio.play().catch((err) => {
@@ -76,6 +97,10 @@ class AudioController {
               audio.pause();
               audio.currentTime = 0;
               this.audioRef = null;
+            }
+            // Cleanup ephemeral blob URL if it was created
+            if (audioUrl.startsWith("localDB:")) {
+              URL.revokeObjectURL(finalAudioUrl);
             }
             resolve();
           }, duration * 1000);

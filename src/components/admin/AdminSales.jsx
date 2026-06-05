@@ -13,6 +13,7 @@ import {
 function AdminSales() {
   const { currentUser } = useAuth();
   const [orders, setOrders] = useState([]);
+  const [snapshots, setSnapshots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState("Overall"); // "Overall", "Today", "Specific Date"
   const [specificDate, setSpecificDate] = useState("");
@@ -21,13 +22,18 @@ function AdminSales() {
   useEffect(() => {
     if (!currentUser?.uid) return;
 
-    const q = query(
+    const qOrders = query(
       collection(db, COLLECTIONS.ORDERS),
       where("restaurantId", "==", currentUser.uid)
     );
 
-    const unsubscribe = onSnapshot(
-      q,
+    const qSnapshots = query(
+      collection(db, COLLECTIONS.DAILY_SNAPSHOTS),
+      where("restaurantId", "==", currentUser.uid)
+    );
+
+    const unsubOrders = onSnapshot(
+      qOrders,
       (snapshot) => {
         const fetchedOrders = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -37,16 +43,52 @@ function AdminSales() {
         setLoading(false);
       },
       (err) => {
-        console.error("Sales data listener error:", err);
+        console.error("Orders listener error:", err);
         setLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    const unsubSnapshots = onSnapshot(
+      qSnapshots,
+      (snapshot) => {
+        const fetchedSnapshots = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setSnapshots(fetchedSnapshots);
+      },
+      (err) => console.error("Snapshots listener error:", err)
+    );
+
+    return () => {
+      unsubOrders();
+      unsubSnapshots();
+    };
   }, [currentUser?.uid]);
 
   // ─── Metrics Calculation ─────────────────────────────────────────────
+  const matchedSnapshots = useMemo(() => {
+    if (timeFilter === "Overall") return snapshots;
+
+    if (timeFilter === "Today") {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+      return snapshots.filter((s) => s.date === todayStr);
+    }
+
+    if (timeFilter === "Specific Date" && specificDate) {
+      return snapshots.filter((s) => s.date === specificDate);
+    }
+
+    return [];
+  }, [snapshots, timeFilter, specificDate]);
+
   const completedOrders = useMemo(() => {
+    const snapshotDates = new Set(matchedSnapshots.map(s => s.date));
+
     return orders.filter((o) => {
       const isCompleted = o.active === false || (o.status || "").toLowerCase() === "completed/paid";
       if (!isCompleted) return false;
@@ -82,9 +124,15 @@ function AdminSales() {
         return orderTime >= startOfDay && orderTime <= endOfDay;
       }
 
+      // Ignore orders that fall into a date already covered by matchedSnapshots
+      // to avoid double counting
+      const d = new Date(orderTime);
+      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (snapshotDates.has(ds)) return false;
+
       return true; // Fallback if no date selected
     });
-  }, [orders, timeFilter, specificDate]);
+  }, [orders, timeFilter, specificDate, matchedSnapshots]);
 
   const metrics = useMemo(() => {
     let totalRevenue = 0;
@@ -103,10 +151,16 @@ function AdminSales() {
       });
     });
 
+    matchedSnapshots.forEach((snap) => {
+      totalRevenue += snap.totalRevenue || 0;
+      totalOrders += snap.totalOrders || 0;
+      totalUnitsSold += snap.totalUnitsSold || 0;
+    });
+
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
     return { totalRevenue, totalOrders, averageOrderValue, totalUnitsSold };
-  }, [completedOrders]);
+  }, [completedOrders, matchedSnapshots]);
 
   // ─── Top-Selling Items Engine ────────────────────────────────────────
   const topItems = useMemo(() => {
@@ -132,12 +186,28 @@ function AdminSales() {
       });
     });
 
+    matchedSnapshots.forEach((snap) => {
+      const items = snap.topItems || [];
+      items.forEach((item) => {
+        const qty = item.count || 0;
+        const rev = item.revenue || 0;
+        const price = item.price || 0;
+        if (itemMap.has(item.name)) {
+          const existing = itemMap.get(item.name);
+          existing.count += qty;
+          existing.revenue += rev;
+        } else {
+          itemMap.set(item.name, { count: qty, revenue: rev, price });
+        }
+      });
+    });
+
     // Convert map to array and sort by count descending
     return Array.from(itemMap.entries())
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10); // Top 10 items
-  }, [completedOrders]);
+  }, [completedOrders, matchedSnapshots]);
 
   // ─── UI Rendering ──────────────────────────────────────────────────
   const glassCard = {
@@ -199,7 +269,7 @@ function AdminSales() {
         <div className="flex items-center justify-center py-24">
           <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : completedOrders.length === 0 ? (
+      ) : (completedOrders.length === 0 && matchedSnapshots.length === 0) ? (
         <div
           className="flex flex-col items-center justify-center p-12 rounded-2xl text-center max-w-2xl mx-auto mt-12"
           style={glassCard}
