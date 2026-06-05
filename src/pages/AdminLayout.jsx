@@ -29,7 +29,7 @@ import {
   Menu,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { db, COLLECTIONS } from "../firebase/firebaseConfig";
+import { db, COLLECTIONS, messaging } from "../firebase/firebaseConfig";
 import {
   collection,
   query,
@@ -38,7 +38,10 @@ import {
   orderBy,
   updateDoc,
   doc,
+  serverTimestamp,
 } from "firebase/firestore";
+import { getToken, onMessage } from "firebase/messaging";
+import { audioController } from "../utils/AudioController";
 
 const NAV_ITEMS = [
   { to: "/admin",          label: "Dashboard",    icon: LayoutDashboard, end: true },
@@ -86,6 +89,143 @@ function AdminLayout() {
   const restaurantName = localStorage.getItem("restaurant_name") || "Food World";
   const chimeIntervalRef = useRef(null);
   const [activeAssistanceCall, setActiveAssistanceCall] = useState(null);
+
+  // ── Order Alert State ─────────────────────────────────────────
+  const prevPendingBatchIds = useRef(new Set());
+  const isInitialOrdersLoad = useRef(true);
+  const [activeAlarmOrder, setActiveAlarmOrder] = useState(null);
+
+  // ── Wake Lock API ─────────────────────────────────────────────
+  useEffect(() => {
+    let wakeLock = null;
+    const requestWakeLock = async () => {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        console.log('Screen Wake Lock is active');
+      } catch (err) {
+        console.warn('Wake Lock request failed:', err);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
+    };
+
+    if ('wakeLock' in navigator) {
+      requestWakeLock();
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      if (wakeLock) {
+        wakeLock.release().then(() => { wakeLock = null; });
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // ── Setup Service Worker & FCM ──────────────────────────────────
+  useEffect(() => {
+    if (!messaging || !currentUser) return;
+
+    const setupPushNotifications = async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const swUrl = `/firebase-messaging-sw.js?apiKey=${import.meta.env.VITE_FIREBASE_API_KEY}&projectId=${import.meta.env.VITE_FIREBASE_PROJECT_ID}&messagingSenderId=${import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID}&appId=${import.meta.env.VITE_FIREBASE_APP_ID}`;
+          const registration = await navigator.serviceWorker.register(swUrl);
+          
+          const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+          if (vapidKey) {
+            const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
+            if (token) {
+              await updateDoc(doc(db, COLLECTIONS.SETTINGS, currentUser.uid), {
+                fcmToken: token,
+                updatedAt: serverTimestamp()
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Push notification setup failed:", err);
+      }
+    };
+    setupPushNotifications();
+
+    const unsubscribeMessage = onMessage(messaging, (payload) => {
+      if (!isMuted) audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15);
+    });
+
+    const handleSWMessage = (event) => {
+      if (event.data && event.data.type === 'FCM_BACKGROUND_MESSAGE') {
+        if (!isMuted) audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handleSWMessage);
+
+    return () => {
+      if (unsubscribeMessage) unsubscribeMessage();
+      navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+    };
+  }, [currentUser, messaging, settings, isMuted]);
+
+  // ── Global Live Orders Listener (For Alerts Only) ───────────────
+  useEffect(() => {
+    if (!currentUser || !currentUser.uid) return;
+    const q = query(
+      collection(db, COLLECTIONS.ORDERS),
+      where("restaurantId", "==", currentUser.uid)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const fetchedOrders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const currentPendingBatchIds = new Set();
+      
+      fetchedOrders.forEach((o) => {
+        if (Array.isArray(o.orderBatches)) {
+          o.orderBatches.forEach((batch) => {
+            if ((batch.status || "pending").toLowerCase() === "pending") {
+              currentPendingBatchIds.add(`${o.id}_${batch.id}`);
+            }
+          });
+        }
+      });
+
+      let hasNewPending = false;
+      let newPendingOrder = null;
+      let newBatchIndex = null;
+      
+      currentPendingBatchIds.forEach((uniqueBatchId) => {
+        if (!prevPendingBatchIds.current.has(uniqueBatchId)) {
+          hasNewPending = true;
+          const [orderId, batchId] = uniqueBatchId.split("_");
+          newPendingOrder = fetchedOrders.find((o) => o.id === orderId);
+          if (newPendingOrder && newPendingOrder.orderBatches) {
+            newBatchIndex = newPendingOrder.orderBatches.findIndex((b) => String(b.id) === String(batchId));
+          }
+        }
+      });
+      
+      if (isInitialOrdersLoad.current) {
+        isInitialOrdersLoad.current = false;
+      } else if (hasNewPending && newPendingOrder) {
+        newPendingOrder.newBatchIndex = newBatchIndex;
+        if (!isMuted) {
+          setActiveAlarmOrder(newPendingOrder);
+          audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15);
+        }
+      }
+      
+      prevPendingBatchIds.current = currentPendingBatchIds;
+    });
+    return () => unsub();
+  }, [currentUser, settings, isMuted]);
+
+  const stopOrderAlarm = () => {
+    audioController.stopAll();
+    setActiveAlarmOrder(null);
+  };
 
   // ── Fetch Settings ────────────────────────────────────────────
   useEffect(() => {
@@ -333,6 +473,30 @@ function AdminLayout() {
 
   return (
     <>
+    {/* New Order Alarm Pop-Up Modal */}
+    {activeAlarmOrder && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="bg-[#1e293b] border border-red-500/30 shadow-[0_0_40px_rgba(239,68,68,0.2)] rounded-3xl p-6 md:p-8 max-w-sm w-full text-center flex flex-col items-center">
+          <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-5 animate-pulse">
+            <Bell size={36} className="text-red-500" />
+          </div>
+          <h2 className="text-2xl font-black text-white mb-2 tracking-tight">⚠️ New Incoming Order!</h2>
+          <p className="text-white/60 mb-8 text-sm md:text-base">
+            Table <strong className="text-white text-lg">{activeAlarmOrder.tableNumber}</strong> has just placed a new order
+            {activeAlarmOrder.newBatchIndex !== undefined && activeAlarmOrder.newBatchIndex !== null 
+              ? ` (Batch ${activeAlarmOrder.newBatchIndex + 1})` 
+              : ''}.
+          </p>
+          <button
+            onClick={stopOrderAlarm}
+            className="w-full py-3.5 md:py-4 px-6 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all"
+          >
+            Stop Alarm / Dismiss
+          </button>
+        </div>
+      </div>
+    )}
+
     {/* Assistance Alarm Pop-Up Modal */}
     {activeAssistanceCall && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
