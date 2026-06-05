@@ -190,10 +190,17 @@ function AdminSettings() {
       let audioBlob = null;
       try {
         console.log(`Processing audio compression for: ${fileName}`);
-        audioBlob = await compressAudio(rawBlob);
+        
+        // Wrap compression in a 3-second timeout to prevent hanging on unsupported devices
+        const compressionPromise = compressAudio(rawBlob);
+        const compressionTimeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Audio compression timed out (3s limit reached)")), 3000)
+        );
+        
+        audioBlob = await Promise.race([compressionPromise, compressionTimeoutPromise]);
         console.log(`Audio successfully compressed. New type: ${audioBlob.type}, size: ${audioBlob.size} bytes`);
       } catch (compressionErr) {
-        console.error("Audio compression failed. Falling back to raw Blob binary stream. Error:", compressionErr);
+        console.error("Audio compression failed or timed out. Falling back to raw Blob binary stream. Error:", compressionErr);
         audioBlob = rawBlob;
       }
 
@@ -202,12 +209,21 @@ function AdminSettings() {
         console.log(`Initiating Firebase Storage upload for ${type}...`);
         const storageRef = ref(storage, `notification_sounds/${currentUser.uid}_${type}_sound`);
         
-        // Pass the pure file data binary with preserved type metadata to Firebase
-        await uploadBytes(storageRef, audioBlob, { contentType: audioBlob.type });
-        const downloadUrl = await getDownloadURL(storageRef);
+        // Wrap the Firebase Storage upload in a 6-second timeout to prevent UI hanging on network dropouts
+        const uploadPromise = (async () => {
+          await uploadBytes(storageRef, audioBlob, { contentType: audioBlob.type });
+          return await getDownloadURL(storageRef);
+        })();
+
+        const uploadTimeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Firebase upload timed out (6s limit reached)")), 6000)
+        );
+
+        const downloadUrl = await Promise.race([uploadPromise, uploadTimeoutPromise]);
         console.log("Firebase upload successful. Download URL:", downloadUrl);
 
-        await updateField(type, "audioUrl", downloadUrl);
+        // Do NOT await updateField so that Firestore network delays or rule checks don't block the UI reset
+        updateField(type, "audioUrl", downloadUrl);
         
         if (type === "orderAlert") {
           setUploadSuccessOrder(true);
@@ -217,12 +233,14 @@ function AdminSettings() {
           setTimeout(() => setUploadSuccessCustomer(false), 2000);
         }
       } catch (firebaseErr) {
-        console.warn("Cloud upload blocked, falling back to local DB:", firebaseErr);
+        console.warn("Cloud upload blocked or timed out, falling back to local DB:", firebaseErr);
         
         try {
           console.log(`Saving pure audio binary to local IndexedDB under key: ${type}`);
           await saveAudioToLocalDB(type, audioBlob);
-          await updateField(type, "audioUrl", `localDB:${type}`);
+          
+          // Do NOT await updateField so that Firestore network delays or rule checks don't block the UI reset
+          updateField(type, "audioUrl", `localDB:${type}`);
           console.log(`Successfully saved audio to local IndexedDB`);
           
           if (type === "orderAlert") {
