@@ -18,8 +18,8 @@ class AudioController {
    * @param {string} type - 'orderAlert' or 'customerAlert'
    * @param {number} duration - Playback duration in seconds
    */
-  async playNotification(type = 'orderAlert', duration = 15) {
-    this.queue.push({ type, duration });
+  async playNotification(type = 'orderAlert', duration = 15, audioUrl = null) {
+    this.queue.push({ type, duration, audioUrl });
     if (!this.isPlaying) {
       this.processQueue();
     }
@@ -46,7 +46,7 @@ class AudioController {
 
     this.isPlaying = true;
     const current = this.queue.shift();
-    await this.playSound(current.type, current.duration);
+    await this.playSound(current.type, current.duration, current.audioUrl);
     
     // Slight gap between consecutive alerts
     await new Promise(res => setTimeout(res, 500));
@@ -54,19 +54,16 @@ class AudioController {
     this.processQueue();
   }
 
-  playSound(type, duration) {
+  playSound(type, duration, audioUrl) {
     return new Promise((resolve) => {
       // Respect the global mute toggle if present
       if (localStorage.getItem("fw_admin_muted") === "true") {
         return resolve();
       }
 
-      const storageKey = type === "orderAlert" ? "custom_order_sound" : "custom_assistance_sound";
-      const localAudioBase64 = localStorage.getItem(storageKey);
-
-      if (localAudioBase64) {
+      if (audioUrl && audioUrl !== "local" && audioUrl !== "") {
         try {
-          const audio = new Audio(localAudioBase64);
+          const audio = new Audio(audioUrl);
           this.audioRef = audio;
           audio.loop = true;
           audio.play().catch((err) => {

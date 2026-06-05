@@ -95,37 +95,6 @@ function AdminLayout() {
   const isInitialOrdersLoad = useRef(true);
   const [activeAlarmOrder, setActiveAlarmOrder] = useState(null);
 
-  // ── Wake Lock API ─────────────────────────────────────────────
-  useEffect(() => {
-    let wakeLock = null;
-    const requestWakeLock = async () => {
-      try {
-        wakeLock = await navigator.wakeLock.request('screen');
-        console.log('Screen Wake Lock is active');
-      } catch (err) {
-        console.warn('Wake Lock request failed:', err);
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (wakeLock !== null && document.visibilityState === 'visible') {
-        requestWakeLock();
-      }
-    };
-
-    if ('wakeLock' in navigator) {
-      requestWakeLock();
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-    }
-
-    return () => {
-      if (wakeLock) {
-        wakeLock.release().then(() => { wakeLock = null; });
-      }
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
-
   // ── Setup Service Worker & FCM ──────────────────────────────────
   useEffect(() => {
     if (!messaging || !currentUser) return;
@@ -155,12 +124,12 @@ function AdminLayout() {
     setupPushNotifications();
 
     const unsubscribeMessage = onMessage(messaging, (payload) => {
-      if (!isMuted) audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15);
+      if (!isMuted) audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15, settings?.orderAlert?.audioUrl);
     });
 
     const handleSWMessage = (event) => {
       if (event.data && event.data.type === 'FCM_BACKGROUND_MESSAGE') {
-        if (!isMuted) audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15);
+        if (!isMuted) audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15, settings?.orderAlert?.audioUrl);
       }
     };
     navigator.serviceWorker.addEventListener('message', handleSWMessage);
@@ -213,7 +182,7 @@ function AdminLayout() {
         newPendingOrder.newBatchIndex = newBatchIndex;
         if (!isMuted) {
           setActiveAlarmOrder(newPendingOrder);
-          audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15);
+          audioController.playNotification('orderAlert', settings?.orderAlert?.duration || 15, settings?.orderAlert?.audioUrl);
         }
       }
       
@@ -244,10 +213,10 @@ function AdminLayout() {
     stopAssistanceAlarm();
     setActiveAssistanceCall(newCall);
 
-    const localAudioBase64 = localStorage.getItem("custom_assistance_sound");
+    const audioUrl = settings?.customerAlert?.audioUrl;
     
-    if (localAudioBase64) {
-      const audio = new Audio(localAudioBase64);
+    if (audioUrl && audioUrl !== "local" && audioUrl !== "") {
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
       audio.loop = true;
       audio.play().catch(console.error);

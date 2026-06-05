@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { compressAudio } from "../../utils/audioCompression";
 import { useAuth } from "../../context/AuthContext";
@@ -133,49 +134,27 @@ function AdminSettings() {
     if (type === "orderAlert") setUploadingOrder(true);
     else setUploadingCustomer(true);
 
-    // 1. Clear Memory First
-    const storageKey = type === "orderAlert" ? "custom_order_sound" : "custom_assistance_sound";
-    localStorage.removeItem(storageKey);
-
     try {
-      // 2. Optimize Audio Compression
+      // Compress audio to reduce size and upload to Firebase Storage
       const compressedBlob = await compressAudio(file);
       
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result;
-        
-        try {
-          localStorage.setItem(storageKey, base64String);
-          updateField(type, "audioUrl", "local");
-          
-          if (type === "orderAlert") {
-            setUploadSuccessOrder(true);
-            setTimeout(() => setUploadSuccessOrder(false), 2000);
-          } else {
-            setUploadSuccessCustomer(true);
-            setTimeout(() => setUploadSuccessCustomer(false), 2000);
-          }
-        } catch (error) {
-          console.error("LocalStorage save error:", error);
-          setUploadError("This audio clip is too heavy for browser memory. Please try a shorter notification sound or chime clip.");
-        }
-        
-        if (type === "orderAlert") setUploadingOrder(false);
-        else setUploadingCustomer(false);
-      };
-      
-      reader.onerror = () => {
-        console.error("FileReader error");
-        setUploadError("This audio clip is too heavy for browser memory. Please try a shorter notification sound or chime clip.");
-        if (type === "orderAlert") setUploadingOrder(false);
-        else setUploadingCustomer(false);
-      };
+      const storageRef = ref(storage, `notification_sounds/${currentUser.uid}_${type}_sound`);
+      await uploadBytes(storageRef, compressedBlob);
+      const downloadUrl = await getDownloadURL(storageRef);
 
-      reader.readAsDataURL(compressedBlob);
+      await updateField(type, "audioUrl", downloadUrl);
+      
+      if (type === "orderAlert") {
+        setUploadSuccessOrder(true);
+        setTimeout(() => setUploadSuccessOrder(false), 2000);
+      } else {
+        setUploadSuccessCustomer(true);
+        setTimeout(() => setUploadSuccessCustomer(false), 2000);
+      }
     } catch (err) {
       console.error("Upload/Compression error:", err);
-      setUploadError("This audio clip is too heavy for browser memory. Please try a shorter notification sound or chime clip.");
+      setUploadError("Failed to upload audio to Cloud Storage. Please try again.");
+    } finally {
       if (type === "orderAlert") setUploadingOrder(false);
       else setUploadingCustomer(false);
     }
@@ -215,11 +194,10 @@ function AdminSettings() {
       return;
     }
 
-    const storageKey = type === "orderAlert" ? "custom_order_sound" : "custom_assistance_sound";
-    const localAudioBase64 = localStorage.getItem(storageKey);
+    const audioUrl = config?.audioUrl;
 
-    if (localAudioBase64) {
-      const audio = new Audio(localAudioBase64);
+    if (audioUrl && audioUrl !== "local" && audioUrl !== "") {
+      const audio = new Audio(audioUrl);
       ref.current = audio;
       audio.loop = true;
       audio.play().catch(console.error);

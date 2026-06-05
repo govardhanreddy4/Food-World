@@ -158,34 +158,36 @@ function CategoryStudio() {
       {/* ── Add Category Form ─────────────────────────────────── */}
       <form
         onSubmit={handleAdd}
-        className="flex flex-col sm:flex-row gap-3 mb-6 p-4 rounded-2xl"
+        className="flex flex-col mb-6 p-4 rounded-2xl"
         style={glassCard}
       >
-        <input
-          type="text"
-          placeholder="Category name (e.g. Starters)"
-          value={newLabel}
-          onChange={(e) => setNewLabel(e.target.value)}
-          required
-          className="flex-1 px-4 py-2.5 rounded-xl text-white text-sm placeholder-white/25 outline-none focus:ring-2 focus:ring-indigo-500/50"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
-        />
-        <input
-          type="number"
-          placeholder="Order"
-          value={newOrder}
-          onChange={(e) => setNewOrder(e.target.value)}
-          className="w-20 px-3 py-2.5 rounded-xl text-white text-sm placeholder-white/25 outline-none focus:ring-2 focus:ring-indigo-500/50 text-center"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
-        />
+        <div className="flex gap-3 items-center w-full">
+          <input
+            type="text"
+            placeholder="Category name (e.g. Starters)"
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            required
+            className="flex-1 px-4 py-2.5 rounded-xl text-white text-sm placeholder-white/25 outline-none focus:ring-2 focus:ring-indigo-500/50"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
+          />
+          <input
+            type="number"
+            placeholder="Order"
+            value={newOrder}
+            onChange={(e) => setNewOrder(e.target.value)}
+            className="w-20 px-3 py-2.5 rounded-xl text-white text-sm placeholder-white/25 outline-none focus:ring-2 focus:ring-indigo-500/50 text-center"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
+          />
+        </div>
         <button
           type="submit"
           disabled={adding}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+          className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
           style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
         >
           <Plus size={16} />
-          Add
+          Add Category
         </button>
       </form>
 
@@ -203,7 +205,7 @@ function CategoryStudio() {
           {categories.map((cat) => (
             <div
               key={cat.id}
-              className="flex items-center gap-3 p-4 rounded-xl transition-all"
+              className="flex items-center gap-3 p-4 rounded-2xl transition-all"
               style={glassCard}
             >
               <GripVertical size={16} className="text-white/20 shrink-0" />
