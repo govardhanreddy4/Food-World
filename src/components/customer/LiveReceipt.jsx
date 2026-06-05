@@ -46,7 +46,7 @@ function StatusBadge({ status, isParcel = false }) {
   const styles = {
     pending:          { bg: "rgba(239,68,68,0.12)",   color: "#ef4444", label: "Sent to Kitchen" },
     preparing:        { bg: "rgba(245,158,11,0.12)",  color: "#f59e0b", label: "Being Prepared 🔥" },
-    ready:            { bg: "rgba(59,130,246,0.12)",  color: "#3b82f6", label: "Ready to Serve 🍽️" },
+    ready:            { bg: "rgba(59,130,246,0.12)",  color: "#3b82f6", label: isParcel ? "Ready for Pickup 🛍️" : "Ready to Serve 🍽️" },
     served:           { bg: "rgba(16,185,129,0.12)",  color: "#10b981", label: isParcel ? "Handed Over ✓" : "Served ✓" },
     active:           { bg: "rgba(99,102,241,0.12)",  color: "#6366f1", label: "Session Active" },
     "completed/paid": { bg: "rgba(107,114,128,0.12)", color: "#6b7280", label: "Completed & Paid" },

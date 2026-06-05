@@ -9,6 +9,7 @@ import {
   UtensilsCrossed,
   Trophy,
 } from "lucide-react";
+import { PageHeader, FilterTabs, StatCard, GlassCard, TextInput } from "./AdminUI";
 
 function AdminSales() {
   const { currentUser } = useAuth();
@@ -219,50 +220,32 @@ function AdminSales() {
   return (
     <div className="min-h-screen p-4 md:p-6" style={{ background: "#0B0F19" }}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4 md:mb-6">
-        <div
-          className="w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
-          style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
-        >
-          <TrendingUp size={20} className="text-white" />
-        </div>
-        <div>
-          <h1 className="text-white text-xl md:text-2xl font-bold tracking-tight">Sales Performance</h1>
-          <p className="text-white/40 text-[11px] md:text-sm leading-tight">Real-time revenue & insights from completed orders</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Sales Performance"
+        subtitle="Real-time revenue & insights from completed orders"
+        rightContent={
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-500/20 border border-emerald-500/30">
+            <TrendingUp size={20} className="text-emerald-400" />
+          </div>
+        }
+      />
 
       {/* Time Filters */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 md:gap-2 mb-5 md:mb-8 p-1 md:p-1.5 rounded-2xl w-full sm:w-fit" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-        <button
-          onClick={() => setTimeFilter("Overall")}
-          className={`px-3 py-1.5 md:px-5 md:py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${timeFilter === "Overall" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
-        >
-          Overall
-        </button>
-        <button
-          onClick={() => setTimeFilter("Today")}
-          className={`px-3 py-1.5 md:px-5 md:py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${timeFilter === "Today" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
-        >
-          Today
-        </button>
-        <div className="relative flex items-center">
-          <button
-            onClick={() => setTimeFilter("Specific Date")}
-            className={`px-3 py-1.5 md:px-5 md:py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${timeFilter === "Specific Date" ? "bg-emerald-500/20 text-emerald-400 shadow-md" : "text-white/40 hover:text-white/80"}`}
-          >
-            Specific Date
-          </button>
-          {timeFilter === "Specific Date" && (
-            <input 
-              type="date"
-              value={specificDate}
-              onChange={(e) => setSpecificDate(e.target.value)}
-              className="ml-2 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 md:px-3 md:py-1.5 text-white text-xs md:text-sm outline-none focus:border-emerald-500/50"
-              style={{ colorScheme: "dark" }}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 mb-5 md:mb-8">
+        <FilterTabs 
+          tabs={["Overall", "Today", "Specific Date"]} 
+          activeTab={timeFilter} 
+          onChange={setTimeFilter} 
+        />
+        {timeFilter === "Specific Date" && (
+          <div className="w-48">
+            <TextInput 
+              type="date" 
+              value={specificDate} 
+              onChange={(e) => setSpecificDate(e.target.value)} 
             />
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -285,50 +268,15 @@ function AdminSales() {
       ) : (
         <div className="max-w-6xl">
           {/* Top Metrics Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-5 md:mb-8">
-            <div className="rounded-2xl p-3 md:p-6 relative overflow-hidden group" style={glassCard}>
-              <div className="flex items-start justify-between mb-2 md:mb-4">
-                <p className="text-white/50 text-[10px] md:text-sm font-medium uppercase tracking-wider">Total Revenue</p>
-                <div className="p-1 md:p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-                  <Banknote size={16} />
-                </div>
-              </div>
-              <h2 className="text-white text-xl md:text-3xl font-black md:font-bold">₹{metrics.totalRevenue.toFixed(0)}</h2>
-            </div>
-
-            <div className="rounded-2xl p-3 md:p-5" style={glassCard}>
-              <div className="flex items-start justify-between mb-2 md:mb-4">
-                <p className="text-white/50 text-[10px] md:text-sm font-medium uppercase tracking-wider">Total Orders</p>
-                <div className="p-1 md:p-2 rounded-lg bg-blue-500/10 text-blue-400">
-                  <Receipt size={16} />
-                </div>
-              </div>
-              <h2 className="text-white text-xl md:text-3xl font-black md:font-bold">{metrics.totalOrders}</h2>
-            </div>
-
-            <div className="rounded-2xl p-3 md:p-5" style={glassCard}>
-              <div className="flex items-start justify-between mb-2 md:mb-4">
-                <p className="text-white/50 text-[10px] md:text-sm font-medium uppercase tracking-wider leading-tight">Total<br className="md:hidden"/> Units</p>
-                <div className="p-1 md:p-2 rounded-lg bg-orange-500/10 text-orange-400">
-                  <UtensilsCrossed size={16} />
-                </div>
-              </div>
-              <h2 className="text-white text-xl md:text-3xl font-black md:font-bold">{metrics.totalUnitsSold}</h2>
-            </div>
-
-            <div className="rounded-2xl p-3 md:p-5" style={glassCard}>
-              <div className="flex items-start justify-between mb-2 md:mb-4">
-                <p className="text-white/50 text-[10px] md:text-sm font-medium uppercase tracking-wider leading-tight">Average<br className="md:hidden"/> Value</p>
-                <div className="p-1 md:p-2 rounded-lg bg-purple-500/10 text-purple-400">
-                  <TrendingUp size={16} />
-                </div>
-              </div>
-              <h2 className="text-white text-xl md:text-3xl font-black md:font-bold">₹{metrics.averageOrderValue.toFixed(0)}</h2>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-5 md:mb-8">
+            <StatCard label="Total Revenue" value={`₹${metrics.totalRevenue.toFixed(0)}`} color="#10b981" icon={Banknote} />
+            <StatCard label="Total Orders" value={metrics.totalOrders} color="#3b82f6" icon={Receipt} />
+            <StatCard label="Total Units" value={metrics.totalUnitsSold} color="#f97316" icon={UtensilsCrossed} />
+            <StatCard label="Average Value" value={`₹${metrics.averageOrderValue.toFixed(0)}`} color="#a855f7" icon={TrendingUp} />
           </div>
 
           {/* Top-Selling Items */}
-          <div className="rounded-2xl overflow-hidden" style={glassCard}>
+          <GlassCard noPadding className="overflow-hidden">
             <div className="p-3 md:p-5 border-b border-white/5 bg-white/[0.02] flex items-center gap-2 md:gap-3">
               <Trophy size={16} md:size={18} className="text-amber-400" />
               <h3 className="text-white font-semibold text-xs md:text-base">Top-Selling Items</h3>
@@ -410,9 +358,9 @@ function AdminSales() {
                   </div>
                 ))}
               </div>
-            </>
+              </>
             )}
-          </div>
+          </GlassCard>
         </div>
       )}
     </div>

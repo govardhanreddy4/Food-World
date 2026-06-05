@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { useAuth } from "../../context/AuthContext";
 import { Receipt, Calendar, Banknote, Wallet, CreditCard, Utensils, ShoppingBag } from "lucide-react";
+import { PageHeader, StatCard, GlassCard, TextInput } from "./AdminUI";
 
 function AdminBilling() {
   const { currentUser } = useAuth();
@@ -159,99 +160,33 @@ function AdminBilling() {
   return (
     <div className="min-h-screen p-6" style={{ background: "#0B0F19" }}>
       {/* Header & Date Picker */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
-            style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
-          >
-            <Receipt size={20} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-white text-2xl font-bold tracking-tight">Billing History</h1>
-            <p className="text-white/40 text-sm">Review settled bills and detailed payment ledgers</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-xl w-full md:w-auto" style={glassCard}>
-          <Calendar size={16} className="text-white/50 shrink-0" />
-          <input
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
+        <PageHeader
+          title="Billing History"
+          subtitle="Review settled bills and detailed payment ledgers"
+          rightContent={
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-500/20 border border-indigo-500/30">
+              <Receipt size={20} className="text-indigo-400" />
+            </div>
+          }
+        />
+        <div className="w-full md:w-48">
+          <TextInput
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="bg-transparent border-none outline-none text-white font-medium text-xs md:text-sm w-full md:w-36 focus:ring-0"
-            style={{ colorScheme: "dark" }}
           />
         </div>
       </div>
 
       {/* Summary Widgets */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
-        {/* Card 1: Total Revenue */}
-        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
-          <div className="flex items-center gap-2 md:gap-3 mb-2">
-            <div className="p-1.5 md:p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
-              <Banknote size={18} />
-            </div>
-            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Selected Day<br className="md:hidden"/> Settlement</p>
-          </div>
-          <p className="text-lg md:text-2xl font-black text-white ml-1">₹{metrics.totalRevenue.toFixed(2)}</p>
-        </div>
-
-        {/* Card 2: Dine-In Total */}
-        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
-          <div className="flex items-center gap-2 md:gap-3 mb-2">
-            <div className="p-1.5 md:p-2 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
-              <span className="text-sm md:text-base leading-none">🍽️</span>
-            </div>
-            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Today's Dine-In<br className="md:hidden"/> Revenue</p>
-          </div>
-          <p className="text-lg md:text-2xl font-black text-white ml-1">₹{metrics.totalDineIn.toFixed(2)}</p>
-        </div>
-
-        {/* Card 3: Parcel Total */}
-        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
-          <div className="flex items-center gap-2 md:gap-3 mb-2">
-            <div className="p-1.5 md:p-2 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center">
-              <span className="text-sm md:text-base leading-none">🛍️</span>
-            </div>
-            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Today's Takeaway<br className="md:hidden"/> / Parcel</p>
-          </div>
-          <p className="text-lg md:text-2xl font-black text-white ml-1">₹{metrics.totalParcel.toFixed(2)}</p>
-        </div>
-
-        {/* Card 4: Cash Collection */}
-        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
-          <div className="flex items-center gap-2 md:gap-3 mb-2">
-            <div className="p-1.5 md:p-2 rounded-lg bg-emerald-500/10 text-emerald-300">
-              <Wallet size={18} />
-            </div>
-            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Today's Cash<br className="md:hidden"/> Collection</p>
-          </div>
-          <p className="text-lg md:text-2xl font-black text-white ml-1">₹{metrics.totalCash.toFixed(2)}</p>
-        </div>
-
-        {/* Card 5: UPI Collection */}
-        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
-          <div className="flex items-center gap-2 md:gap-3 mb-2">
-            <div className="p-1.5 md:p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
-              <CreditCard size={18} />
-            </div>
-            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Today's UPI<br className="md:hidden"/> Collection</p>
-          </div>
-          <p className="text-lg md:text-2xl font-black text-white ml-1">₹{metrics.totalUpi.toFixed(2)}</p>
-        </div>
-
-        {/* Card 6: Total Orders */}
-        <div className="rounded-2xl p-4 md:p-5" style={glassCard}>
-          <div className="flex items-center gap-2 md:gap-3 mb-2">
-            <div className="p-1.5 md:p-2 rounded-lg bg-white/10 text-white/80">
-              <Receipt size={18} />
-            </div>
-            <p className="text-white/50 text-[11px] md:text-xs font-medium leading-tight">Orders<br className="md:hidden"/> Finalized</p>
-          </div>
-          <p className="text-lg md:text-2xl font-black text-white ml-1">{metrics.totalOrders}</p>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 mb-6 md:mb-8">
+        <StatCard label="Total Settlement" value={`₹${metrics.totalRevenue.toFixed(2)}`} color="#10b981" icon={Banknote} />
+        <StatCard label="Dine-In Revenue" value={`₹${metrics.totalDineIn.toFixed(2)}`} color="#3b82f6" icon={Utensils} />
+        <StatCard label="Takeaway Revenue" value={`₹${metrics.totalParcel.toFixed(2)}`} color="#f97316" icon={ShoppingBag} />
+        <StatCard label="Cash Collection" value={`₹${metrics.totalCash.toFixed(2)}`} color="#10b981" icon={Wallet} />
+        <StatCard label="UPI Collection" value={`₹${metrics.totalUpi.toFixed(2)}`} color="#6366f1" icon={CreditCard} />
+        <StatCard label="Orders Finalized" value={metrics.totalOrders} color="#e2e8f0" icon={Receipt} />
       </div>
 
       {/* Main Table */}
@@ -260,15 +195,15 @@ function AdminBilling() {
           <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : filteredOrders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 rounded-2xl text-center max-w-2xl mx-auto mt-12" style={glassCard}>
+        <GlassCard className="flex flex-col items-center justify-center p-12 text-center max-w-2xl mx-auto mt-12">
           <span className="text-6xl mb-6 opacity-80">📋</span>
           <h3 className="text-2xl font-bold text-white mb-2">No Settlements Found</h3>
           <p className="text-slate-400 mb-6">There are no completed orders for the selected date.</p>
-        </div>
+        </GlassCard>
       ) : (
         <>
           {/* Desktop Table View */}
-          <div className="hidden md:block w-full max-w-full overflow-x-auto rounded-2xl border border-white/10 scrollbar-hide shadow-2xl" style={{ background: "rgba(15,23,42,0.4)", backdropFilter: "blur(16px)" }}>
+          <GlassCard noPadding className="hidden md:block w-full max-w-full overflow-x-auto">
             <table className="w-full min-w-[800px] text-left border-collapse">
             <thead>
               <tr className="border-b border-white/10 text-white/40 text-xs uppercase tracking-wider bg-white/5">
@@ -303,8 +238,8 @@ function AdminBilling() {
                 );
               })}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </GlassCard>
 
         {/* Mobile Card View */}
         <div className="md:hidden flex flex-col gap-3">

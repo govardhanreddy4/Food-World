@@ -16,12 +16,8 @@ import React, { useState, useEffect, useRef } from "react";
 import QRCode from "qrcode";
 import { QrCode, Download, Printer, Table2, Link } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { PageHeader, GlassCard, TextInput, PrimaryButton, SecondaryButton } from "./AdminUI";
 
-const glassCard = {
-  background: "rgba(15,23,42,0.6)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  backdropFilter: "blur(16px)",
-};
 
 function QRStudio() {
   const { currentUser } = useAuth();
@@ -158,47 +154,40 @@ function QRStudio() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: "rgba(99,102,241,0.2)", border: "1px solid rgba(99,102,241,0.3)" }}
-        >
-          <QrCode size={20} className="text-indigo-400" />
-        </div>
-        <div>
-          <h1 className="text-white text-xl font-bold">QR Studio</h1>
-          <p className="text-white/40 text-sm">
-            Generate and print QR sticker cards for each table.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="QR Studio"
+        subtitle="Generate and print QR sticker cards for each table."
+        rightContent={
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-500/20 border border-indigo-500/30">
+            <QrCode size={20} className="text-indigo-400" />
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ── Left: Input Panel ───────────────────────────────── */}
         <div className="flex flex-col gap-4">
           {/* Domain input */}
-          <div className="p-5 rounded-2xl" style={glassCard}>
+          <GlassCard className="p-5">
             <label className="flex items-center gap-2 text-white/60 text-xs mb-2">
               <Link size={13} />
               Base Domain URL
             </label>
-            <input
+            <TextInput
               type="url"
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
               placeholder="https://your-restaurant.com"
-              className="w-full px-4 py-3 rounded-xl text-white text-sm placeholder-white/20 outline-none focus:ring-2 focus:ring-indigo-500/50"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
             />
             <p className="text-white/25 text-xs mt-2">
               Auto-detected from <code className="text-indigo-400/70">
                 window.location.origin
               </code> — edit if deploying to a different domain.
             </p>
-          </div>
+          </GlassCard>
 
           {/* Table ID input */}
-          <div className="p-5 rounded-2xl" style={glassCard}>
+          <GlassCard className="p-5">
             <div className="flex justify-between items-center mb-2">
               <label className="flex items-center gap-2 text-white/60 text-xs">
                 <Table2 size={13} />
@@ -211,16 +200,12 @@ function QRStudio() {
                 <span>🛍️</span> Counter Parcel QR
               </button>
             </div>
-            <input
-              id="qr-table-input"
-              type="text"
+            <TextInput
               value={tableId}
               onChange={(e) => setTableId(e.target.value)}
               placeholder="e.g. 7, A1, Terrace-3"
-              className="w-full px-4 py-3 rounded-xl text-white text-sm placeholder-white/20 outline-none focus:ring-2 focus:ring-indigo-500/50"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
             />
-          </div>
+          </GlassCard>
 
           {/* Generated URL preview */}
           {orderUrl && (
@@ -238,30 +223,22 @@ function QRStudio() {
 
           {/* Action buttons */}
           <div className="flex gap-3">
-            <button
-              id="btn-download-qr"
+            <PrimaryButton
               onClick={handleDownload}
               disabled={!qrDataUrl}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+              icon={Download}
+              className="flex-1"
             >
-              <Download size={16} />
               Download PNG
-            </button>
-            <button
-              id="btn-print-qr"
+            </PrimaryButton>
+            <SecondaryButton
               onClick={handlePrint}
               disabled={!qrDataUrl}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10"
-              style={{
-                color: "rgba(255,255,255,0.7)",
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.10)",
-              }}
+              icon={Printer}
+              className="flex-1"
             >
-              <Printer size={16} />
               Print Card
-            </button>
+            </SecondaryButton>
           </div>
         </div>
 
@@ -269,20 +246,14 @@ function QRStudio() {
         <div className="flex items-center justify-center">
           {!tableId.trim() ? (
             /* Empty state */
-            <div
-              className="w-full h-72 flex flex-col items-center justify-center rounded-2xl"
-              style={glassCard}
-            >
+            <GlassCard className="w-full h-72 flex flex-col items-center justify-center">
               <QrCode size={48} className="text-white/10 mb-3" />
               <p className="text-white/30 text-sm">Enter a table number to generate the QR code</p>
-            </div>
+            </GlassCard>
           ) : generating ? (
-            <div
-              className="w-full h-72 flex items-center justify-center rounded-2xl"
-              style={glassCard}
-            >
+            <GlassCard className="w-full h-72 flex items-center justify-center">
               <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            </div>
+            </GlassCard>
           ) : (
             /* Sticker card preview */
             <div

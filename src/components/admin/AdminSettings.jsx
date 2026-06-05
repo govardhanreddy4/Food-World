@@ -17,6 +17,7 @@ import {
   Loader2,
   CheckCircle2
 } from "lucide-react";
+import { PageHeader, GlassCard, TextInput, PrimaryButton } from "./AdminUI";
 
 const defaultSettings = {
   orderAlert: { audioUrl: "", duration: 15 },
@@ -289,12 +290,6 @@ function AdminSettings() {
     }
   };
 
-  // ─── Rendering ──────────────────────────────────────────────
-  const glassCard = {
-    background: "rgba(15,23,42,0.6)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    backdropFilter: "blur(16px)",
-  };
 
   if (loading) {
     return (
@@ -307,17 +302,16 @@ function AdminSettings() {
   return (
     <div className="min-h-screen p-6" style={{ background: "#0B0F19" }}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6 md:mb-8">
-        <div
-          className="w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg"
-          style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
-        >
-          <SettingsIcon size={20} className="text-white" />
-        </div>
-        <div>
-          <h1 className="text-white text-xl md:text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-white/40 text-xs md:text-sm">Customize real-time notification tones and alert durations</p>
-        </div>
+      <div className="mb-6 md:mb-8">
+        <PageHeader
+          title="Settings"
+          subtitle="Customize real-time notification tones and alert durations"
+          rightContent={
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-500/20 border border-indigo-500/30">
+              <SettingsIcon size={20} className="text-indigo-400" />
+            </div>
+          }
+        />
       </div>
 
       {uploadError && (
@@ -328,34 +322,27 @@ function AdminSettings() {
       )}
 
       {/* General Settings */}
-      <div className="rounded-2xl p-4 md:p-6 mb-4 md:mb-6" style={glassCard}>
+      <GlassCard className="mb-4 md:mb-6 p-4 md:p-6">
         <h2 className="text-white font-bold text-base md:text-lg mb-4">General Settings</h2>
         <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
           <div className="flex-1">
-            <label className="block text-xs md:text-sm font-semibold text-white/70 mb-1.5 md:mb-2">
-              Restaurant Name
-            </label>
-            <input
-              type="text"
+            <TextInput
+              label="Restaurant Name"
               value={restaurantName}
               onChange={(e) => setRestaurantName(e.target.value)}
               placeholder="Enter your restaurant name (e.g., Food World)"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50"
             />
           </div>
-          <button
-            onClick={handleSaveRestaurantName}
-            className="w-full md:w-auto px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl transition-all"
-          >
+          <PrimaryButton onClick={handleSaveRestaurantName} className="w-full md:w-auto">
             Save Settings
-          </button>
+          </PrimaryButton>
         </div>
-      </div>
+      </GlassCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         
         {/* New Order Alerts */}
-        <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden" style={glassCard}>
+        <GlassCard className="p-4 md:p-6 overflow-hidden">
           <div className="flex items-center gap-3 mb-4 md:mb-6">
             <div className="p-2 md:p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <UtensilsCrossed size={18} md:size={20} />
@@ -368,16 +355,13 @@ function AdminSettings() {
 
           <div className="space-y-4 md:space-y-6">
             <div>
-              <label className="block text-xs md:text-sm font-semibold text-white/70 mb-1.5 md:mb-2">
-                Playback Duration (Seconds)
-              </label>
-              <input
+              <TextInput
+                label="Playback Duration (Seconds)"
                 type="number"
                 min="1"
                 max="60"
                 value={settings.orderAlert.duration}
                 onChange={(e) => updateField("orderAlert", "duration", Number(e.target.value))}
-                className="w-full md:w-32 bg-white/5 border border-white/10 rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50"
               />
               <p className="text-white/30 text-[10px] mt-2">Recommended: 15 seconds to ensure staff attention during rush.</p>
             </div>
@@ -438,10 +422,10 @@ function AdminSettings() {
               )}
             </div>
           </div>
-        </div>
+        </GlassCard>
 
         {/* Customer Assistance Alerts */}
-        <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden" style={glassCard}>
+        <GlassCard className="p-4 md:p-6 overflow-hidden">
           <div className="flex items-center gap-3 mb-4 md:mb-6">
             <div className="p-2 md:p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
               <Bell size={18} md:size={20} />
@@ -454,16 +438,13 @@ function AdminSettings() {
 
           <div className="space-y-4 md:space-y-6">
             <div>
-              <label className="block text-xs md:text-sm font-semibold text-white/70 mb-1.5 md:mb-2">
-                Playback Duration (Seconds)
-              </label>
-              <input
+              <TextInput
+                label="Playback Duration (Seconds)"
                 type="number"
                 min="1"
                 max="60"
                 value={settings.customerAlert.duration}
                 onChange={(e) => updateField("customerAlert", "duration", Number(e.target.value))}
-                className="w-full md:w-32 bg-white/5 border border-white/10 rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50"
               />
               <p className="text-white/30 text-[10px] mt-2">Recommended: 15 seconds to ensure staff attention during rush.</p>
             </div>
@@ -524,12 +505,10 @@ function AdminSettings() {
               )}
             </div>
           </div>
-        </div>
-
-
+        </GlassCard>
 
         {/* Database Retention Policy */}
-        <div className="rounded-2xl p-4 md:p-6 relative overflow-hidden mt-6" style={glassCard}>
+        <GlassCard className="p-4 md:p-6 overflow-hidden mt-6 lg:col-span-2">
           <div className="flex items-center gap-3 mb-4 md:mb-6">
             <div className="p-2 md:p-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20">
               <AlertTriangle size={18} md:size={20} />
@@ -542,31 +521,27 @@ function AdminSettings() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs md:text-sm font-semibold text-white/70 mb-1.5 md:mb-2">
-                Keep itemized bills for (Days)
-              </label>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <input
-                  type="number"
-                  min="1"
-                  value={retentionDaysInput}
-                  onChange={(e) => setRetentionDaysInput(e.target.value)}
-                  className="w-full sm:w-32 bg-white/5 border border-white/10 rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50"
-                  placeholder="e.g. 30"
-                />
-                <button
-                  onClick={handleSaveRetentionPolicy}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20"
-                >
+              <div className="flex flex-col sm:flex-row items-end gap-3">
+                <div className="w-full sm:w-64">
+                  <TextInput
+                    label="Keep itemized bills for (Days)"
+                    type="number"
+                    min="1"
+                    value={retentionDaysInput}
+                    onChange={(e) => setRetentionDaysInput(e.target.value)}
+                    placeholder="e.g. 30"
+                  />
+                </div>
+                <PrimaryButton onClick={handleSaveRetentionPolicy}>
                   Save Retention Policy
-                </button>
+                </PrimaryButton>
               </div>
               <p className="text-white/30 text-[10px] mt-2">
                 Records older than this limit will be deleted to optimize storage. Daily aggregate snapshots will be permanently saved for analytics.
               </p>
             </div>
           </div>
-        </div>
+        </GlassCard>
 
       </div>
     </div>

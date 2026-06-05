@@ -43,12 +43,9 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
+import { PageHeader, PrimaryButton, FilterTabs, GlassCard, TextInput } from "./AdminUI";
 
-const glassCard = {
-  background: "rgba(15,23,42,0.6)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  backdropFilter: "blur(16px)",
-};
+
 
 // ─── Empty form state factory ────────────────────────────────────────────────
 const emptyForm = () => ({
@@ -317,78 +314,51 @@ function ItemFormModal({ isOpen, onClose, editItem, categories, onSave }) {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Item Name */}
-          <div>
-            <label className="text-white/60 text-xs mb-1.5 block">Item Name *</label>
-            <input
-              type="text"
-              placeholder="e.g. Butter Chicken"
-              value={form.name}
-              onChange={(e) => handleChange("name", e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-xl text-white text-sm placeholder-white/20 outline-none focus:ring-2 focus:ring-indigo-500/50"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
-            />
-          </div>
+          <TextInput
+            label="Item Name"
+            placeholder="e.g. Butter Chicken"
+            value={form.name}
+            onChange={(e) => handleChange("name", e.target.value)}
+            required
+          />
 
           {/* Description */}
-          <div>
-            <label className="text-white/60 text-xs mb-1.5 block">Description</label>
-            <textarea
-              placeholder="Short description of the dish…"
-              value={form.description}
-              onChange={(e) => handleChange("description", e.target.value)}
-              rows={2}
-              className="w-full px-4 py-3 rounded-xl text-white text-sm placeholder-white/20 outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
-            />
-          </div>
+          <TextInput
+            label="Description"
+            placeholder="Short description of the dish…"
+            value={form.description}
+            onChange={(e) => handleChange("description", e.target.value)}
+            multiline
+            rows={2}
+          />
 
           {/* Price + Category + Food Type */}
           <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="text-white/60 text-xs mb-1.5 block">Price (₹) *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                value={form.price}
-                onChange={(e) => handleChange("price", e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-xl text-white text-sm placeholder-white/20 outline-none focus:ring-2 focus:ring-indigo-500/50"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
-              />
-            </div>
-            <div>
-              <label className="text-white/60 text-xs mb-1.5 block">Category *</label>
-              <select
-                value={form.category}
-                onChange={(e) => handleChange("category", e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-xl text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
-              >
-                <option value="" disabled className="bg-slate-900">Select…</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.label} className="bg-slate-900">
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-white/60 text-xs mb-1.5 block">Food Type *</label>
-              <select
-                value={form.foodType}
-                onChange={(e) => handleChange("foodType", e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-xl text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
-              >
-                <option value="Veg" className="bg-slate-900">Veg</option>
-                <option value="Non-Veg" className="bg-slate-900">Non-Veg</option>
-              </select>
-            </div>
+            <TextInput
+              label="Price (₹)"
+              type="number"
+              placeholder="0.00"
+              value={form.price}
+              onChange={(e) => handleChange("price", e.target.value)}
+              required
+            />
+            <TextInput
+              label="Category"
+              type="select"
+              value={form.category}
+              onChange={(e) => handleChange("category", e.target.value)}
+              required
+              placeholder="Select…"
+              options={categories.map((cat) => cat.label)}
+            />
+            <TextInput
+              label="Food Type"
+              type="select"
+              value={form.foodType}
+              onChange={(e) => handleChange("foodType", e.target.value)}
+              required
+              options={["Veg", "Non-Veg"]}
+            />
           </div>
 
           {/* ── Image Upload Field ──────────────────────────────────────────
@@ -671,59 +641,30 @@ function MenuManager() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "rgba(99,102,241,0.2)", border: "1px solid rgba(99,102,241,0.3)" }}
-          >
-            <UtensilsCrossed size={20} className="text-indigo-400" />
-          </div>
-          <div>
-            <h1 className="text-white text-xl font-bold">Menu Manager</h1>
-            <p className="text-white/40 text-sm">{items.length} items total</p>
-          </div>
-        </div>
-        <button
-          onClick={() => { setEditItem(null); setModalOpen(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-        >
-          <Plus size={17} />
-          Add Item
-        </button>
-      </div>
+      <PageHeader
+        title="Menu Manager"
+        subtitle={`${items.length} items total`}
+        rightContent={
+          <PrimaryButton onClick={() => { setEditItem(null); setModalOpen(true); }} icon={Plus}>
+            Add Item
+          </PrimaryButton>
+        }
+      />
 
       {/* Category filter tabs */}
-      <div className="flex gap-2 flex-wrap mb-5">
-        {["All", ...categories.map((c) => c.label)].map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setFilterCat(cat)}
-            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
-              filterCat === cat
-                ? "text-white"
-                : "text-white/40 hover:text-white/70 hover:bg-white/5"
-            }`}
-            style={
-              filterCat === cat
-                ? {
-                    background: "rgba(99,102,241,0.25)",
-                    border: "1px solid rgba(99,102,241,0.4)",
-                  }
-                : { border: "1px solid rgba(255,255,255,0.08)" }
-            }
-          >
-            {cat}
-          </button>
-        ))}
+      <div className="mb-5">
+        <FilterTabs
+          tabs={["All", ...categories.map((c) => c.label)]}
+          activeTab={filterCat}
+          onChange={setFilterCat}
+        />
       </div>
 
       {/* Items Grid */}
       {loading ? (
         <p className="text-white/40 text-center py-20">Loading menu items…</p>
       ) : filteredItems.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 rounded-2xl text-center" style={glassCard}>
+        <GlassCard className="flex flex-col items-center justify-center p-12 text-center">
           {items.length === 0 ? (
             <>
               <span className="text-5xl mb-4">🍽️</span>
@@ -736,14 +677,14 @@ function MenuManager() {
               <p className="text-white/40">No items in this category.</p>
             </>
           )}
-        </div>
+        </GlassCard>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredItems.map((item) => (
-            <div
+            <GlassCard
               key={item.id}
-              className={`rounded-2xl overflow-hidden transition-all ${!item.available ? "opacity-60" : ""}`}
-              style={glassCard}
+              noPadding
+              className={`overflow-hidden transition-all ${!item.available ? "opacity-60" : ""}`}
             >
               {/* Image */}
               {item.imageUrl ? (
@@ -817,7 +758,7 @@ function MenuManager() {
                   </div>
                 </div>
               </div>
-            </div>
+            </GlassCard>
           ))}
         </div>
       )}

@@ -42,6 +42,7 @@ import {
   Users,
   Loader2,
 } from "lucide-react";
+import { PageHeader, FilterTabs, StatCard, StatusBadge, PrimaryButton, TextInput, GlassCard } from "./AdminUI";
 
 // ─── Status configuration ─────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -351,26 +352,7 @@ function AdminDashboard() {
 
   // ── Helper: get status pill styling ───────────────────────────
   const getBatchStatusBadge = (status, isParcel = false) => {
-    const norm = (status || "pending").toLowerCase();
-    const styles = {
-      pending: "bg-red-500/10 text-red-400 border border-red-500/20",
-      preparing: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
-      ready: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-      served: "bg-green-500/10 text-green-400 border border-green-500/20",
-    };
-    const names = {
-      pending: "Pending",
-      preparing: "Preparing",
-      ready: "Ready",
-      served: isParcel ? "Handed Over" : "Served",
-    };
-    const cls = styles[norm] || "bg-slate-500/10 text-slate-400 border border-slate-500/20";
-    const lbl = names[norm] || status || "Pending";
-    return (
-      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${cls}`}>
-        {lbl}
-      </span>
-    );
+    return <StatusBadge status={status} />;
   };
 
   // ── Helper: render KDS actions ────────────────────────────────
@@ -382,35 +364,35 @@ function AdminDashboard() {
     
     if (norm === "pending") {
       return (
-        <button
-          disabled={isUpdating}
+        <PrimaryButton
+          loading={isUpdating}
           onClick={() => updateBatchStatus(orderId, batch.id, "Preparing")}
-          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-lg hover:opacity-90 transition-all shadow-sm disabled:opacity-70 flex justify-center items-center gap-1.5"
+          className="!bg-red-600 hover:!bg-red-500 !shadow-red-500/25 !border-red-500"
         >
-          {isUpdating ? <><Loader2 size={14} className="animate-spin"/> Updating...</> : "Start Cooking"}
-        </button>
+          Start Cooking
+        </PrimaryButton>
       );
     }
     if (norm === "preparing") {
       return (
-        <button
-          disabled={isUpdating}
+        <PrimaryButton
+          loading={isUpdating}
           onClick={() => updateBatchStatus(orderId, batch.id, "Ready")}
-          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg hover:opacity-90 transition-all shadow-sm disabled:opacity-70 flex justify-center items-center gap-1.5"
+          className="!bg-amber-600 hover:!bg-amber-500 !shadow-amber-500/25 !border-amber-500"
         >
-          {isUpdating ? <><Loader2 size={14} className="animate-spin"/> Updating...</> : "Mark Prepared"}
-        </button>
+          Mark Prepared
+        </PrimaryButton>
       );
     }
     if (norm === "ready") {
       return (
-        <button
-          disabled={isUpdating}
+        <PrimaryButton
+          loading={isUpdating}
           onClick={() => updateBatchStatus(orderId, batch.id, "Served")}
-          className="px-3 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg hover:opacity-90 transition-all shadow-sm disabled:opacity-70 flex justify-center items-center gap-1.5"
+          className="!bg-emerald-600 hover:!bg-emerald-500 !shadow-emerald-500/25 !border-emerald-500"
         >
-          {isUpdating ? <><Loader2 size={14} className="animate-spin"/> Updating...</> : (isParcel ? "Hand Over to Customer" : "Serve to Table")}
-        </button>
+          {isParcel ? "Hand Over" : "Serve"}
+        </PrimaryButton>
       );
     }
     return null;
@@ -423,90 +405,50 @@ function AdminDashboard() {
       {/* ── Main KDS Content ─────────────────────────────────────── */}
       <div className="flex-1 p-3 md:p-6 min-w-0 w-full overflow-hidden">
         {/* Page header */}
-        <div className="flex items-center justify-between mb-5 md:mb-6">
-          <div>
-            <h1 className="text-white text-xl md:text-2xl font-bold">Kitchen Display System (KDS)</h1>
-            <p className="text-white/40 text-xs md:text-sm">Real-time KDS workflow table</p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-emerald-400/70 text-xs font-medium">Live Feed</span>
-          </div>
-        </div>
+        <PageHeader 
+          title="Kitchen Display System (KDS)" 
+          subtitle="Real-time KDS workflow table" 
+          rightContent={
+            <>
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-emerald-400/70 text-xs font-medium tracking-wide">Live Feed</span>
+            </>
+          }
+        />
 
         {/* Time Filters */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 mb-5 md:mb-6">
-          <div className="flex flex-wrap gap-2">
-            {["Today", "Overall", "Specific Date"].map((f) => (
-              <button
-                key={f}
-                onClick={() => setTimeFilter(f)}
-                className={`px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-[11px] md:text-xs font-bold transition-all ${
-                  timeFilter === f ? "text-white shadow-lg" : "text-white/40 hover:text-white/70"
-                }`}
-                style={
-                  timeFilter === f
-                    ? { background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(79,70,229,0.2))", border: "1px solid rgba(99,102,241,0.4)" }
-                    : { border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }
-                }
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-          
+          <FilterTabs 
+            tabs={["Today", "Overall", "Specific Date"]} 
+            activeTab={timeFilter} 
+            onChange={setTimeFilter} 
+          />
           {timeFilter === "Specific Date" && (
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-[#0B0F19] border border-white/10 rounded-xl px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm text-white outline-none focus:border-indigo-500/50 shadow-inner"
-              style={{ colorScheme: 'dark' }}
-            />
+            <div className="w-48">
+              <TextInput 
+                type="date" 
+                value={selectedDate} 
+                onChange={(e) => setSelectedDate(e.target.value)} 
+              />
+            </div>
           )}
         </div>
 
         {/* Stats bar */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-6">
-          {[
-            { label: "Pending",       value: stats.pending,      color: "#ef4444" },
-            { label: "Preparing",     value: stats.preparing,    color: "#f59e0b" },
-            { label: "Served",        value: stats.served,       color: "#10b981" },
-            { label: "Active Tables", value: stats.activeTables, color: "#6366f1", icon: Users },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              className="rounded-2xl p-3 md:p-4"
-              style={{
-                background: "rgba(15,23,42,0.6)",
-                border: `1px solid ${color}30`,
-                backdropFilter: "blur(16px)",
-              }}
-            >
-              <p className="text-white/40 text-[10px] md:text-xs mb-1">{label}</p>
-              <p className="text-white text-xl md:text-2xl font-bold" style={{ color }}>{value}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-5 md:mb-6">
+          <StatCard label="Pending" value={stats.pending} color="#ef4444" />
+          <StatCard label="Preparing" value={stats.preparing} color="#f59e0b" />
+          <StatCard label="Served" value={stats.served} color="#10b981" />
+          <StatCard label="Active Tables" value={stats.activeTables} color="#6366f1" icon={Users} />
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-2 mb-4 md:mb-5">
-          {["Active", "Completed", "All"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[11px] md:text-xs font-medium transition-all ${
-                statusFilter === f ? "text-white" : "text-white/40 hover:text-white/70"
-              }`}
-              style={
-                statusFilter === f
-                  ? { background: "rgba(99,102,241,0.25)", border: "1px solid rgba(99,102,241,0.4)" }
-                  : { border: "1px solid rgba(255,255,255,0.08)" }
-              }
-            >
-              {f}
-            </button>
-          ))}
+        <div className="mb-4 md:mb-5">
+          <FilterTabs 
+            tabs={["Active", "Completed", "All"]} 
+            activeTab={statusFilter} 
+            onChange={setStatusFilter} 
+          />
         </div>
 
         {/* KDS Table View */}
@@ -542,14 +484,12 @@ function AdminDashboard() {
                   return (
                     <tr key={order.id} className="hover:bg-white/5 transition-colors">
                       {/* Table No. */}
-                      <td className="py-4 px-4 align-top font-bold text-sm">
-                        <div className="flex flex-col gap-1.5 items-start">
-                          <span className="text-white text-base">
+                      <td className="py-4 px-4 align-top">
+                        <div className="flex flex-col gap-2 items-start">
+                          <span className="text-white text-xl font-black">
                             {String(order.tableNumber).toUpperCase() === 'PARCEL' ? 'Parcel' : `Table ${order.tableNumber}`}
                           </span>
-                          {order.fulfillmentType === 'parcel' && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">🛍️ TAKEAWAY</span>
-                          )}
+                          {/* Badge removed per requirement */}
                           <OrderTimer timestamp={latestTimestamp} status={order.status} />
                         </div>
                       </td>
@@ -571,15 +511,10 @@ function AdminDashboard() {
                                   {getBatchStatusBadge(batch.status, (batch.fulfillmentType || order.fulfillmentType || 'dine-in') === 'parcel')}
                                   
                                   {/* Batch-level fulfillment badge */}
-                                  {(batch.fulfillmentType || order.fulfillmentType || 'dine-in') === 'parcel' ? (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                                      🛍️ Takeaway / Parcel
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                                      🍽️ Dine-In
-                                    </span>
-                                  )}
+                                  <StatusBadge 
+                                    type="fulfillment" 
+                                    status={(batch.fulfillmentType || order.fulfillmentType || 'dine-in')} 
+                                  />
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {renderBatchActions(order, batch)}
@@ -648,18 +583,16 @@ function AdminDashboard() {
                 const allServed = order.orderBatches?.every(b => (b.status || "").toLowerCase() === "served");
                 
                 return (
-                  <div key={order.id} className="bg-white/5 border border-white/10 rounded-xl flex flex-col overflow-hidden shadow-lg">
-                    {/* Header: Table No & Timer */}
-                    <div className={`flex justify-between items-start p-3 md:p-4 border-b border-white/5 ${order.fulfillmentType === 'parcel' ? 'bg-orange-500/10' : 'bg-black/20'}`}>
-                      <div className="flex flex-col gap-1 items-start">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-base md:text-lg">
-                            {String(order.tableNumber).toUpperCase() === 'PARCEL' ? 'Parcel' : `Table ${order.tableNumber}`}
-                          </span>
-                          {order.fulfillmentType === 'parcel' && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">🛍️ TAKEAWAY</span>
-                          )}
-                        </div>
+                    <GlassCard noPadding className="flex flex-col overflow-hidden shadow-lg border-white/10 mb-5">
+                      {/* Header: Table No & Timer */}
+                      <div className="flex justify-between items-start p-4 md:p-5 border-b border-white/5 bg-black/20">
+                        <div className="flex flex-col gap-2 items-start">
+                          <div className="flex items-center gap-3">
+                            <span className="font-black text-white text-xl md:text-2xl">
+                              {String(order.tableNumber).toUpperCase() === 'PARCEL' ? 'Parcel' : `Table ${order.tableNumber}`}
+                            </span>
+                            {/* Badge removed per requirement */}
+                          </div>
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-1 rounded-full text-[10px] font-semibold w-fit ${order.active ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" : "bg-slate-500/10 text-slate-400 border border-slate-500/20"}`}>
                             {order.active ? "Active" : "Completed"}
@@ -693,15 +626,7 @@ function AdminDashboard() {
                                 {getBatchStatusBadge(batch.status, isParcelBatch)}
                                 
                                 {/* Batch-level fulfillment badge */}
-                                {isParcelBatch ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                                    🛍️ Takeaway / Parcel
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                                    🍽️ Dine-In
-                                  </span>
-                                )}
+                                <StatusBadge type="fulfillment" status={batchFulfillment} />
                               </div>
                               <div className="flex items-center gap-2">
                                 {batch.timestamp && (
@@ -798,7 +723,7 @@ function AdminDashboard() {
                         </button>
                       </div>
                     )}
-                  </div>
+                  </GlassCard>
                 );
               })}
             </div>

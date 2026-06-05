@@ -29,6 +29,7 @@ import {
 import { db, COLLECTIONS } from "../../firebase/firebaseConfig";
 import { Plus, Pencil, Trash2, Check, X, Tag, GripVertical } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { PageHeader, GlassCard, TextInput, PrimaryButton } from "./AdminUI";
 
 // ─── Shared dark-glass card style ───────────────────────────────────────────
 const glassCard = {
@@ -126,22 +127,15 @@ function CategoryStudio() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "rgba(99,102,241,0.2)", border: "1px solid rgba(99,102,241,0.3)" }}
-          >
+      <PageHeader 
+        title="Category Studio" 
+        subtitle="Manage menu categories. Changes appear instantly on customer menus." 
+        rightContent={
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-500/20 border border-indigo-500/30">
             <Tag size={20} className="text-indigo-400" />
           </div>
-          <div>
-            <h1 className="text-white text-xl font-bold">Category Studio</h1>
-            <p className="text-white/40 text-sm">
-              Manage menu categories. Changes appear instantly on customer menus.
-            </p>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Error */}
       {error && (
@@ -156,57 +150,53 @@ function CategoryStudio() {
       )}
 
       {/* ── Add Category Form ─────────────────────────────────── */}
-      <form
-        onSubmit={handleAdd}
-        className="flex flex-col mb-6 p-4 rounded-2xl"
-        style={glassCard}
-      >
-        <div className="flex gap-3 items-center w-full">
-          <input
-            type="text"
-            placeholder="Category name (e.g. Starters)"
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-            required
-            className="flex-1 px-4 py-2.5 rounded-xl text-white text-sm placeholder-white/25 outline-none focus:ring-2 focus:ring-indigo-500/50"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
-          />
-          <input
-            type="number"
-            placeholder="Order"
-            value={newOrder}
-            onChange={(e) => setNewOrder(e.target.value)}
-            className="w-20 px-3 py-2.5 rounded-xl text-white text-sm placeholder-white/25 outline-none focus:ring-2 focus:ring-indigo-500/50 text-center"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={adding}
-          className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
-          style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-        >
-          <Plus size={16} />
-          Add Category
-        </button>
-      </form>
+      <GlassCard className="flex flex-col mb-6">
+        <form onSubmit={handleAdd} className="flex flex-col gap-3">
+          <div className="flex gap-3 items-end w-full">
+            <div className="flex-1">
+              <TextInput
+                placeholder="Category name (e.g. Starters)"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                required
+              />
+            </div>
+            <div className="w-24">
+              <TextInput
+                type="number"
+                placeholder="Order"
+                value={newOrder}
+                onChange={(e) => setNewOrder(e.target.value)}
+              />
+            </div>
+          </div>
+          <PrimaryButton
+            type="submit"
+            disabled={adding}
+            loading={adding}
+            icon={Plus}
+            className="w-full"
+          >
+            Add Category
+          </PrimaryButton>
+        </form>
+      </GlassCard>
 
       {/* ── Category List ─────────────────────────────────────── */}
       {loading ? (
         <p className="text-white/40 text-center py-12">Loading categories…</p>
       ) : categories.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 rounded-2xl text-center" style={glassCard}>
+        <GlassCard className="flex flex-col items-center justify-center p-12 text-center">
           <span className="text-5xl mb-4">🏷️</span>
           <h3 className="text-xl font-semibold text-white">No custom categories found</h3>
           <p className="text-sm text-slate-400 mt-2 max-w-sm">Create one above to structure your menu boards.</p>
-        </div>
+        </GlassCard>
       ) : (
         <div className="flex flex-col gap-2">
           {categories.map((cat) => (
-            <div
+            <GlassCard
               key={cat.id}
-              className="flex items-center gap-3 p-4 rounded-2xl transition-all"
-              style={glassCard}
+              className="!p-4 flex items-center gap-3 transition-all"
             >
               <GripVertical size={16} className="text-white/20 shrink-0" />
 
@@ -218,8 +208,7 @@ function CategoryStudio() {
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
                     autoFocus
-                    className="flex-1 px-3 py-1.5 rounded-lg text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)" }}
+                    className="flex-1 px-3 py-2 rounded-xl text-white text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 bg-[#0B0F19] border border-white/10"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") saveEdit(cat.id);
                       if (e.key === "Escape") setEditingId(null);
@@ -229,8 +218,7 @@ function CategoryStudio() {
                     type="number"
                     value={editOrder}
                     onChange={(e) => setEditOrder(e.target.value)}
-                    className="w-16 px-2 py-1.5 rounded-lg text-white text-sm text-center outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)" }}
+                    className="w-20 px-3 py-2 rounded-xl text-white text-sm text-center outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 bg-[#0B0F19] border border-white/10"
                   />
                   <button
                     onClick={() => saveEdit(cat.id)}
@@ -277,7 +265,7 @@ function CategoryStudio() {
                   </button>
                 </>
               )}
-            </div>
+            </GlassCard>
           ))}
         </div>
       )}
