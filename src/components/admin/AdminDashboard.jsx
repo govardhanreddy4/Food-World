@@ -752,9 +752,21 @@ function AdminDashboard() {
                       })}
                     </div>
                     
-                    {/* Mobile Settle Action */}
-                    {order.active && allServed && (
-                      <div className="p-3 md:p-4 border-t border-white/5 bg-black/10">
+                    {/* Mobile Print & Settle Actions */}
+                    <div className="p-3 md:p-4 border-t border-white/5 bg-black/10 flex flex-col gap-2">
+                      {/* Print Token Button - always visible */}
+                      <button
+                        onClick={() => handlePrint(order)}
+                        disabled={printingOrderId === order.id}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 md:py-2.5 text-xs md:text-sm font-semibold text-white rounded-lg md:rounded-xl transition-all hover:opacity-90 disabled:opacity-50 bg-gray-800 border border-gray-700"
+                      >
+                        {printingOrderId === order.id
+                          ? <Loader2 size={15} className="animate-spin" />
+                          : <Printer size={15} />}
+                        {printingOrderId === order.id ? 'Connecting to Printer...' : '🖨️ Print Token'}
+                      </button>
+
+                      {order.active && allServed && (
                         <button
                           onClick={() => {
                             setSettleOrder(order);
@@ -765,8 +777,8 @@ function AdminDashboard() {
                         >
                           Settle Bill
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </GlassCard>
                 );
               })}
