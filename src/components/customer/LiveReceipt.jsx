@@ -32,7 +32,9 @@ import {
   AlertCircle,
   Loader2,
   Receipt,
+  Printer,
 } from "lucide-react";
+import { printOrderToken } from "../../utils/thermalPrinter";
 
 // ─── localStorage helpers (duplicated inline for isolation) ──────────────────
 const LS_KEY = (tableId) => `fw_session_table_${tableId}`;
@@ -72,6 +74,23 @@ function LiveReceipt() {
   const [order, setOrder]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [printing, setPrinting] = useState(false);
+
+  // ── Print Handler ──────────────────────────────────────────
+  const handlePrint = async () => {
+    if (!order) return;
+    setPrinting(true);
+    try {
+      const result = await printOrderToken(order, 'FOOD WORLD');
+      if (!result.success) {
+        alert(`Print failed: ${result.error}`);
+      }
+    } catch (err) {
+      alert(`Print error: ${err.message}`);
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   // ── Listen for active order for this table ──────────────────
   useEffect(() => {
@@ -301,7 +320,7 @@ function LiveReceipt() {
           ))}
         </div>
 
-        {/* ── Grand Total Card ─────────────────────────────────── */}
+        {/* ── Grand Total Card ──────────────────────────────────── */}
         <div
           className="p-5 rounded-2xl mb-6"
           style={{
@@ -330,6 +349,8 @@ function LiveReceipt() {
             {order?.orderBatches?.length || 0} order{order?.orderBatches?.length !== 1 ? "s" : ""}
           </p>
         </div>
+
+
 
         {/* ── Add More Items ────────────────────────────────────── */}
         {order?.status !== "Completed/Paid" && (

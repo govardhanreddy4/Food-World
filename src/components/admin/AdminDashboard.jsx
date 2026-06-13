@@ -41,8 +41,10 @@ import {
   X,
   Users,
   Loader2,
+  Printer,
 } from "lucide-react";
 import { PageHeader, FilterTabs, StatCard, StatusBadge, PrimaryButton, TextInput, GlassCard } from "./AdminUI";
+import { printOrderToken } from "../../utils/thermalPrinter";
 
 // ─── Status configuration ─────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -119,6 +121,33 @@ function AdminDashboard() {
   const [settleOrder, setSettleOrder] = useState(null);
   const [cashAmount, setCashAmount] = useState("");
   const [upiAmount, setUpiAmount] = useState("");
+
+  // ── Print State ───────────────────────────────────────────────
+  const [printingOrderId, setPrintingOrderId] = useState(null);
+
+  // ── Print Handler ─────────────────────────────────────────────
+  const handlePrint = async (order) => {
+    // IMPORTANT: Do NOT set React state here!
+    // navigator.bluetooth.requestDevice MUST be called synchronously from the click event.
+    // Any async delay or React state batching here will consume the "user gesture"
+    // and Chrome will block the picker with a SecurityError.
+    const restaurantName = localStorage.getItem('restaurant_name') || 'FOOD WORLD';
+    try {
+      const result = await printOrderToken(order, restaurantName, () => {
+        // This callback fires AFTER the user selects a printer from the browser popup.
+        // It is now safe to trigger the React loading state.
+        setPrintingOrderId(order.id);
+      });
+      
+      if (!result.success && !result.cancelled) {
+        alert(`Print failed: ${result.error}`);
+      }
+    } catch (err) {
+      alert(`Print error: ${err.message}`);
+    } finally {
+      setPrintingOrderId(null);
+    }
+  };
 
   // ── Live orders listener ──────────────────────────────────────
   useEffect(() => {
@@ -556,18 +585,33 @@ function AdminDashboard() {
                       </td>
                       {/* Actions */}
                       <td className="py-4 px-4 align-top">
-                        {order.active && allServed && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Print Token Button */}
                           <button
-                            onClick={() => {
-                              setSettleOrder(order);
-                              setCashAmount("");
-                              setUpiAmount("");
-                            }}
-                            className="px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-md hover:opacity-90 transition-all shadow-md"
+                            onClick={() => handlePrint(order)}
+                            disabled={printingOrderId === order.id}
+                            title="Print Order Token"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition-all hover:opacity-90 disabled:opacity-50 bg-gray-800 border border-gray-700"
                           >
-                            Settle Bill
+                            {printingOrderId === order.id
+                              ? <Loader2 size={13} className="animate-spin" />
+                              : <Printer size={13} />}
+                            {printingOrderId === order.id ? 'Connecting...' : 'Print Token'}
                           </button>
-                        )}
+
+                          {order.active && allServed && (
+                            <button
+                              onClick={() => {
+                                setSettleOrder(order);
+                                setCashAmount("");
+                                setUpiAmount("");
+                              }}
+                              className="px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-md hover:opacity-90 transition-all shadow-md"
+                            >
+                              Settle Bill
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
