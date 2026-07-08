@@ -130,10 +130,34 @@ function ActiveTables() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 mt-6">
-          {tables.map(tableNo => {
-            const order = activeOrders.find(o => String(o.tableNumber) === String(tableNo) && String(o.fulfillmentType).toLowerCase() !== 'parcel');
-            
-            if (order) {
+          {(() => {
+            // 1. Standardize and Reduce to build global table map
+            const occupiedTablesMap = activeOrders.reduce((acc, order) => {
+              const normalizedOrderTable = String(order.tableNumber || order.tableId);
+              const isParcel = String(order.fulfillmentType).toLowerCase() === 'parcel';
+              
+              // Skip generic parcel orders that aren't tied to a physical table number
+              if (isParcel && normalizedOrderTable.toLowerCase() === 'parcel') return acc;
+
+              if (!acc[normalizedOrderTable]) {
+                acc[normalizedOrderTable] = { ...order, aggregatedTotal: Number(order.totalAmount || 0) };
+              } else {
+                // Aggregate running totals
+                acc[normalizedOrderTable].aggregatedTotal += Number(order.totalAmount || 0);
+                // Ensure DINE-IN masks TAKEAWAY if multiple active sessions exist for the same table
+                if (String(acc[normalizedOrderTable].fulfillmentType).toLowerCase() === 'parcel' && !isParcel) {
+                  acc[normalizedOrderTable].fulfillmentType = order.fulfillmentType;
+                  acc[normalizedOrderTable].id = order.id;
+                }
+              }
+              return acc;
+            }, {});
+
+            return tables.map(tableNo => {
+              const normalizedGridTable = String(tableNo);
+              const order = occupiedTablesMap[normalizedGridTable];
+              
+              if (order) {
               // Occupied Table
               const firstBatchTimestamp = order.orderBatches?.[0]?.timestamp;
               const oPStatus = printStatuses[order.id];
@@ -157,7 +181,7 @@ function ActiveTables() {
                   </div>
                   
                   <h3 className="text-white text-4xl font-black mt-4 mb-1">T{tableNo}</h3>
-                  <p className="text-white font-bold text-lg mb-3">₹{Number(order.totalAmount || 0).toFixed(2)}</p>
+                  <p className="text-white font-bold text-lg mb-3">₹{Number(order.aggregatedTotal || 0).toFixed(2)}</p>
                   
                   <TableTimer timestamp={firstBatchTimestamp || order.createdAt} />
                 </button>
@@ -183,7 +207,8 @@ function ActiveTables() {
                 </div>
               );
             }
-          })}
+          });
+          })()}
         </div>
       )}
 
