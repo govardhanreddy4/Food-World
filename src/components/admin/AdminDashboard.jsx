@@ -43,8 +43,8 @@ import {
   Loader2,
   Printer,
 } from "lucide-react";
-import { PageHeader, FilterTabs, StatCard, StatusBadge, PrimaryButton, TextInput, GlassCard } from "./AdminUI";
-import { printOrderToken } from "../../utils/thermalPrinter";
+import { PageHeader, FilterTabs, StatCard, StatusBadge, PrimaryButton, TextInput, GlassCard, Toast } from "./AdminUI";
+import { printOrderToken, printKOTToken } from "../../utils/thermalPrinter";
 
 // ─── Status configuration ─────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -116,6 +116,16 @@ function AdminDashboard() {
   const [loading, setLoading]         = useState(true);
   const [updatingBatches, setUpdatingBatches] = useState(new Set());
   const updatingBatchesRef            = useRef(new Set());
+  const [receiptSettings, setReceiptSettings] = useState(null);
+
+  // ── Print Tracking & Toast ──────────────────────────────────────
+  const [toast, setToast] = useState({ visible: false, message: '' });
+  const [printStatuses, setPrintStatuses] = useState({});
+
+  const showToast = (message) => {
+    setToast({ visible: true, message });
+    setTimeout(() => setToast({ visible: false, message: '' }), 5000);
+  };
 
   // ── Settlement State ──────────────────────────────────────────
   const [settleOrder, setSettleOrder] = useState(null);
@@ -127,22 +137,39 @@ function AdminDashboard() {
 
   // ── Print Handler ─────────────────────────────────────────────
   const handlePrint = async (order) => {
-    // IMPORTANT: Do NOT set React state here!
-    // navigator.bluetooth.requestDevice MUST be called synchronously from the click event.
-    // Any async delay or React state batching here will consume the "user gesture"
-    // and Chrome will block the picker with a SecurityError.
+    setPrintStatuses(prev => ({ ...prev, [order.id]: { printing: true, success: false, target: '' } }));
     const restaurantName = localStorage.getItem('restaurant_name') || 'FOOD WORLD';
     try {
       const result = await printOrderToken(order, restaurantName, () => {
-        // This callback fires AFTER the user selects a printer from the browser popup.
-        // It is now safe to trigger the React loading state.
         setPrintingOrderId(order.id);
-      });
+      }, receiptSettings);
       
-      if (!result.success && !result.cancelled) {
-        alert(`Print failed: ${result.error}`);
+      if (result.success) {
+        setPrintStatuses(prev => ({ ...prev, [order.id]: { printing: false, success: true, target: 'Billing' } }));
+        showToast(`💰 Invoice for Table ${order.tableNumber} successfully printed at Billing Desk.`);
+        setTimeout(() => {
+          setPrintStatuses(prev => {
+            const next = { ...prev };
+            delete next[order.id];
+            return next;
+          });
+        }, 3000);
+      } else {
+        setPrintStatuses(prev => {
+          const next = { ...prev };
+          delete next[order.id];
+          return next;
+        });
+        if (!result.cancelled) {
+          alert(`Print failed: ${result.error}`);
+        }
       }
     } catch (err) {
+      setPrintStatuses(prev => {
+        const next = { ...prev };
+        delete next[order.id];
+        return next;
+      });
       alert(`Print error: ${err.message}`);
     } finally {
       setPrintingOrderId(null);
@@ -202,7 +229,17 @@ function AdminDashboard() {
       });
       setLoading(false);
     }, (error) => console.error("Orders listener error:", error));
-    return () => unsub();
+
+    const unsubSettings = onSnapshot(doc(db, COLLECTIONS.SETTINGS, currentUser.uid), (snap) => {
+      if (snap.exists() && snap.data().receiptStudio) {
+        setReceiptSettings(snap.data().receiptStudio);
+      }
+    });
+
+    return () => {
+      unsub();
+      unsubSettings();
+    };
   }, [currentUser, currentUser?.uid]);
 
   // ── Update Batch Status (Race-Condition-Proof Transaction) ───
@@ -392,13 +429,36 @@ function AdminDashboard() {
     const norm = (batch.status || "pending").toLowerCase();
     
     if (norm === "pending") {
+      const pStatus = printStatuses[batch.id];
+      const isSending = pStatus?.printing;
+      
       return (
         <PrimaryButton
-          loading={isUpdating}
-          onClick={() => updateBatchStatus(orderId, batch.id, "Preparing")}
+          loading={isUpdating || isSending}
+          onClick={async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: true, success: false, target: '' } }));
+            try {
+              const res = await printKOTToken(order, batch, receiptSettings);
+              if (res.success) {
+                setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: false, success: true, target: 'Kitchen' } }));
+                showToast(`📄 Ticket for Table ${order.tableNumber} (Batch ${order.orderBatches.findIndex(b => b.id === batch.id) + 1}) successfully routed to Kitchen Printer.`);
+                setTimeout(() => {
+                  setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+                }, 3000);
+              } else {
+                setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+              }
+            } catch (err) {
+              setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+              console.error(err);
+            }
+            updateBatchStatus(orderId, batch.id, "Preparing");
+          }}
           className="!bg-red-600 hover:!bg-red-500 !shadow-red-500/25 !border-red-500"
         >
-          Start Cooking
+          {isSending ? "Sending to Hardware..." : "Start Cooking"}
         </PrimaryButton>
       );
     }
@@ -430,6 +490,7 @@ function AdminDashboard() {
 
   return (
     <>
+    <Toast message={toast.message} visible={toast.visible} onClose={() => setToast({ visible: false, message: '' })} />
     <div className="flex flex-col xl:flex-row min-h-screen w-full overflow-hidden" style={{ background: "#0B0F19" }}>
       {/* ── Main KDS Content ─────────────────────────────────────── */}
       <div className="flex-1 p-3 md:p-6 min-w-0 w-full overflow-hidden">
@@ -510,8 +571,11 @@ function AdminDashboard() {
                   const latestTimestamp = order.orderBatches?.[order.orderBatches.length - 1]?.timestamp;
                   const allServed = order.orderBatches?.every(b => (b.status || "").toLowerCase() === "served");
                   
+                  const orderPStatus = printStatuses[order.id];
+                  const rowGlow = orderPStatus?.success ? "bg-green-500/10 shadow-[inset_0_0_15px_rgba(34,197,94,0.2)]" : "hover:bg-white/5";
+                  
                   return (
-                    <tr key={order.id} className="hover:bg-white/5 transition-colors">
+                    <tr key={order.id} className={`transition-colors ${rowGlow}`}>
                       {/* Table No. */}
                       <td className="py-4 px-4 align-top">
                         <div className="flex flex-col gap-2 items-start">
@@ -525,13 +589,16 @@ function AdminDashboard() {
                       {/* Order Details */}
                       <td className="py-4 px-4 align-top">
                         <div className="space-y-3 max-w-lg">
-                          {order.orderBatches?.map((batch, bIdx) => (
+                          {order.orderBatches?.map((batch, bIdx) => {
+                            const bPStatus = printStatuses[batch.id];
+                            const batchGlow = bPStatus?.success ? 'border-green-500 shadow-lg shadow-green-500/20 bg-green-500/5' : null;
+                            const isParcel = (batch.fulfillmentType || order.fulfillmentType || 'dine-in') === 'parcel';
+                            
+                            return (
                             <div 
                               key={bIdx} 
-                              className={`text-xs rounded-xl p-3 border shadow-sm transition-all ${
-                                (batch.fulfillmentType || order.fulfillmentType || 'dine-in') === 'parcel'
-                                  ? 'bg-orange-500/10 border-orange-500/30'
-                                  : 'bg-white/5 border-white/5'
+                              className={`text-xs rounded-xl p-3 border transition-all ${
+                                batchGlow ? batchGlow : (isParcel ? 'bg-orange-500/10 border-orange-500/30 shadow-sm' : 'bg-white/5 border-white/5 shadow-sm')
                               }`}
                             >
                               <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
@@ -570,7 +637,7 @@ function AdminDashboard() {
                                 </div>
                               )}
                             </div>
-                          ))}
+                          )})}
                         </div>
                       </td>
                       {/* Total */}
@@ -626,8 +693,11 @@ function AdminDashboard() {
                 const latestTimestamp = order.orderBatches?.[order.orderBatches.length - 1]?.timestamp;
                 const allServed = order.orderBatches?.every(b => (b.status || "").toLowerCase() === "served");
                 
+                const orderPStatus = printStatuses[order.id];
+                const cardGlow = orderPStatus?.success ? "shadow-[0_0_20px_rgba(34,197,94,0.3)] border border-green-500/50" : "border-white/10";
+
                 return (
-                    <GlassCard noPadding className="flex flex-col overflow-hidden shadow-lg border-white/10 mb-5">
+                    <GlassCard noPadding className={`flex flex-col overflow-hidden shadow-lg transition-all mb-5 ${cardGlow}`}>
                       {/* Header: Table No & Timer */}
                       <div className="flex justify-between items-start p-4 md:p-5 border-b border-white/5 bg-black/20">
                         <div className="flex flex-col gap-2 items-start">
@@ -655,13 +725,16 @@ function AdminDashboard() {
                         const bStatus = (batch.status || "").toLowerCase();
                         const batchFulfillment = batch.fulfillmentType || order.fulfillmentType || 'dine-in';
                         const isParcelBatch = batchFulfillment === 'parcel';
+                        const bPStatus = printStatuses[batch.id];
+                        const batchGlow = bPStatus?.success ? 'border-green-500 shadow-lg shadow-green-500/20 bg-green-500/5' : null;
+
                         return (
                           <div 
                             key={bIdx} 
-                            className={`text-xs rounded-xl p-3 md:p-4 border shadow-sm transition-all ${
-                              isParcelBatch
-                                ? 'bg-orange-500/10 border-orange-500/30'
-                                : 'bg-white/5 border-white/5'
+                            className={`text-xs rounded-xl p-3 md:p-4 border transition-all ${
+                              batchGlow ? batchGlow : (isParcelBatch
+                                ? 'bg-orange-500/10 border-orange-500/30 shadow-sm'
+                                : 'bg-white/5 border-white/5 shadow-sm')
                             }`}
                           >
                             <div className="flex justify-between items-center mb-2 md:mb-3 flex-wrap gap-2">
@@ -699,18 +772,37 @@ function AdminDashboard() {
                             <div className="mt-3 md:mt-4">
                               {(() => {
                                 const isUpdating = updatingBatches.has(batch.id);
+                                const pStatus = printStatuses[batch.id];
+                                const isSending = pStatus?.printing;
+
                                 if (bStatus === "pending") {
                                   return (
                                     <button
-                                      disabled={isUpdating}
-                                      onClick={(e) => {
+                                      disabled={isUpdating || isSending}
+                                      onClick={async (e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
+                                        setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: true, success: false, target: '' } }));
+                                        try {
+                                          const res = await printKOTToken(order, batch, receiptSettings);
+                                          if (res.success) {
+                                            setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: false, success: true, target: 'Kitchen' } }));
+                                            showToast(`📄 Ticket for Table ${order.tableNumber} (Batch ${bIdx + 1}) successfully routed to Kitchen Printer.`);
+                                            setTimeout(() => {
+                                              setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+                                            }, 3000);
+                                          } else {
+                                            setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+                                          }
+                                        } catch (err) {
+                                          setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+                                          console.error(err);
+                                        }
                                         updateBatchStatus(order.id, batch.id, "Preparing");
                                       }}
                                       className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-70 flex justify-center items-center gap-2"
                                     >
-                                      {isUpdating ? <><Loader2 size={16} className="animate-spin"/> Updating...</> : "Start Cooking"}
+                                      {isSending ? <><Loader2 size={16} className="animate-spin"/> Sending to Hardware...</> : (isUpdating ? <><Loader2 size={16} className="animate-spin"/> Updating...</> : "Start Cooking")}
                                     </button>
                                   );
                                 }

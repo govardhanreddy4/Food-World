@@ -27,6 +27,8 @@ import {
   VolumeX,
   X,
   Menu,
+  LayoutGrid,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { db, COLLECTIONS, messaging } from "../firebase/firebaseConfig";
@@ -46,6 +48,8 @@ import { runDatabasePruner } from "../utils/DatabasePruner";
 
 const NAV_ITEMS = [
   { to: "/admin",          label: "Dashboard",    icon: LayoutDashboard, end: true },
+  { to: "/admin/active-tables", label: "Active Tables", icon: LayoutGrid },
+  { to: "/admin/receipt-studio", label: "Receipt Studio", icon: FileText },
   { to: "/admin/menu",     label: "Menu Manager", icon: UtensilsCrossed },
   { to: "/admin/categories", label: "Category Studio", icon: Tag },
   { to: "/admin/qr",       label: "QR Studio",    icon: QrCode },

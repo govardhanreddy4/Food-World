@@ -29,6 +29,8 @@ import AdminLayout from "./pages/AdminLayout";
 
 // ── Admin Components ──────────────────────────────────────────────────────────
 import AdminDashboard  from "./components/admin/AdminDashboard";
+import ActiveTables    from "./components/admin/ActiveTables";
+import ReceiptStudio   from "./components/admin/ReceiptStudio";
 import MenuManager     from "./components/admin/MenuManager";
 import CategoryStudio  from "./components/admin/CategoryStudio";
 import QRStudio        from "./components/admin/QRStudio";
@@ -56,6 +58,8 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AdminLayout />}>
               <Route path="/admin"             element={<AdminDashboard />} />
+              <Route path="/admin/active-tables" element={<ActiveTables />} />
+              <Route path="/admin/receipt-studio" element={<ReceiptStudio />} />
               <Route path="/admin/menu"        element={<MenuManager />} />
               <Route path="/admin/categories"  element={<CategoryStudio />} />
               <Route path="/admin/qr"          element={<QRStudio />} />

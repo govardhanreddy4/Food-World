@@ -1,5 +1,5 @@
 import React from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 // ── Cards & Containers ──────────────────────────────────────────
 
@@ -199,6 +199,20 @@ export function TextInput({ label, type = "text", value, onChange, placeholder, 
           style={type === "date" ? { colorScheme: 'dark' } : {}}
         />
       )}
+    </div>
+  );
+}
+
+export function Toast({ message, visible, onClose }) {
+  if (!visible) return null;
+  return (
+    <div className="fixed top-4 right-4 z-[9999] bg-slate-900 border border-white/20 shadow-2xl rounded-xl p-4 min-w-[300px] animate-in slide-in-from-top-2 fade-in duration-300" style={{ backdropFilter: 'blur(12px)', background: 'rgba(15,23,42,0.95)' }}>
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-white text-sm font-medium">{message}</p>
+        <button onClick={onClose} className="text-white/40 hover:text-white mt-0.5 transition-colors">
+          <X size={16} />
+        </button>
+      </div>
     </div>
   );
 }
