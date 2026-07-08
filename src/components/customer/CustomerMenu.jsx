@@ -50,7 +50,9 @@ import {
   ChefHat,
   AlertCircle,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
+import { generateTableToken } from "../../utils/security";
 
 // ─── localStorage helpers ────────────────────────────────────────────────────
 const LS_KEY = (tableId) => `fw_session_table_${tableId}`;
@@ -446,9 +448,11 @@ function CustomerMenu() {
   const navigate          = useNavigate();
   const tableId           = searchParams.get("table") || "";
   const resId             = searchParams.get("resId") || "";
+  const tokenUrlParam     = searchParams.get("token") || "";
   const isParcelQR        = tableId.toUpperCase() === "PARCEL";
 
   const [fulfillmentType, setFulfillmentType] = useState(isParcelQR ? "parcel" : "dine-in");
+  const [securityValid, setSecurityValid]     = useState(null); // null = checking, true/false = result
 
   const [menuItems, setMenuItems]       = useState([]);
   const [categories, setCategories]     = useState([]);
@@ -463,19 +467,32 @@ function CustomerMenu() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(() => !sessionStorage.getItem("welcome_seen"));
   const restaurantName = localStorage.getItem("restaurant_name") || "Food World";
 
+  // ── Security Validation ───────────────────────────────────────
+  useEffect(() => {
+    async function validateToken() {
+      if (!tableId || !resId) return;
+      const expectedToken = await generateTableToken(resId, tableId);
+      if (tokenUrlParam !== expectedToken) {
+        setSecurityValid(false);
+      } else {
+        setSecurityValid(true);
+      }
+    }
+    validateToken();
+  }, [tableId, resId, tokenUrlParam]);
+
   // ── On mount: check localStorage for existing locked session ─
   useEffect(() => {
-    if (!tableId || !resId) return;
+    if (securityValid !== true || !tableId || !resId) return;
     const session = getStoredSession(tableId);
     if (session?.locked && session?.orderId) {
-      // Session is locked — redirect to receipt
-      navigate(`/receipt?resId=${resId}&table=${tableId}`, { replace: true });
+      navigate(`/receipt?resId=${resId}&table=${tableId}&token=${tokenUrlParam}`, { replace: true });
     }
-  }, [tableId, resId, navigate]);
+  }, [tableId, resId, navigate, securityValid, tokenUrlParam]);
 
   // ── Live menu items ───────────────────────────────────────────
   useEffect(() => {
-    if (!resId) return;
+    if (!resId || securityValid !== true) return;
     const q = query(
       collection(db, COLLECTIONS.MENU_ITEMS),
       where("restaurantId", "==", resId)
@@ -487,11 +504,11 @@ function CustomerMenu() {
       setLoadingMenu(false);
     }, (error) => console.error("CustomerMenu items listener error:", error));
     return () => unsub();
-  }, [resId]);
+  }, [resId, securityValid]);
 
   // ── Live categories ───────────────────────────────────────────
   useEffect(() => {
-    if (!resId) return;
+    if (!resId || securityValid !== true) return;
     const q = query(
       collection(db, COLLECTIONS.CATEGORIES),
       where("restaurantId", "==", resId)
@@ -502,7 +519,7 @@ function CustomerMenu() {
       setCategories(fetchedCats);
     }, (error) => console.error("CustomerMenu categories error:", error));
     return () => unsub();
-  }, [resId]);
+  }, [resId, securityValid]);
 
   // ── Filtered menu ─────────────────────────────────────────────
   const filteredItems = menuItems.filter((i) => {
@@ -614,7 +631,7 @@ function CustomerMenu() {
 
         // ── Navigate to receipt ───────────────────────────────
         setCartOpen(false);
-        navigate(`/receipt?resId=${resId}&table=${tableId}`);
+        navigate(`/receipt?resId=${resId}&table=${tableId}&token=${tokenUrlParam}`);
       } catch (err) {
         console.error("[Order] Failed to confirm:", err);
         setError("Failed to send order. Please check your connection and try again.");
@@ -661,6 +678,33 @@ function CustomerMenu() {
             Please scan the QR code on your table to access the menu.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // ── Security token guard ──────────────────────────────────────
+  if (securityValid === false) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{ background: "#0f172a" }}
+      >
+        <div className="text-center p-8 rounded-3xl max-w-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+          <ShieldAlert size={48} className="text-red-500 mx-auto mb-4" />
+          <h2 className="text-white text-xl font-bold mb-2">Invalid QR Signature</h2>
+          <p className="text-white/60 text-sm leading-relaxed mb-6">
+            The table identifier does not match the cryptographic signature. Please scan the official QR code printed at your table to securely access the menu.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Still verifying token
+  if (securityValid === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#0f172a" }}>
+        <Loader2 size={32} className="text-indigo-500 animate-spin" />
       </div>
     );
   }

@@ -17,6 +17,7 @@ import QRCode from "qrcode";
 import { QrCode, Download, Printer, Table2, Link } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, GlassCard, TextInput, PrimaryButton, SecondaryButton } from "./AdminUI";
+import { generateTableToken } from "../../utils/security";
 
 
 function QRStudio() {
@@ -32,9 +33,24 @@ function QRStudio() {
   const canvasRef                   = useRef(null);
 
   // ── Build the order URL ──────────────────────────────────────
-  const orderUrl = tableId.trim() && currentUser
-    ? `${domain.replace(/\/$/, "")}/menu?resId=${currentUser.uid}&table=${encodeURIComponent(tableId.trim())}`
-    : "";
+  const [orderUrl, setOrderUrl] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+    async function buildUrl() {
+      const tId = tableId.trim();
+      if (!tId || !currentUser) {
+        setOrderUrl("");
+        return;
+      }
+      const token = await generateTableToken(currentUser.uid, tId);
+      const baseUrl = domain.replace(/\/$/, "");
+      const newUrl = `${baseUrl}/menu?resId=${currentUser.uid}&table=${encodeURIComponent(tId)}&token=${token}`;
+      if (isMounted) setOrderUrl(newUrl);
+    }
+    buildUrl();
+    return () => { isMounted = false; };
+  }, [tableId, currentUser, domain]);
 
   // ── Generate QR whenever URL changes ────────────────────────
   useEffect(() => {

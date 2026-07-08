@@ -33,8 +33,10 @@ import {
   Loader2,
   Receipt,
   Printer,
+  ShieldAlert,
 } from "lucide-react";
 import { printOrderToken } from "../../utils/thermalPrinter";
+import { generateTableToken } from "../../utils/security";
 
 // ─── localStorage helpers (duplicated inline for isolation) ──────────────────
 const LS_KEY = (tableId) => `fw_session_table_${tableId}`;
@@ -70,11 +72,27 @@ function LiveReceipt() {
   const navigate       = useNavigate();
   const tableId        = searchParams.get("table") || "";
   const resId          = searchParams.get("resId") || "";
+  const tokenUrlParam  = searchParams.get("token") || "";
 
   const [order, setOrder]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [securityValid, setSecurityValid] = useState(null);
+
+  // ── Security Validation ───────────────────────────────────────
+  useEffect(() => {
+    async function validateToken() {
+      if (!tableId || !resId) return;
+      const expectedToken = await generateTableToken(resId, tableId);
+      if (tokenUrlParam !== expectedToken) {
+        setSecurityValid(false);
+      } else {
+        setSecurityValid(true);
+      }
+    }
+    validateToken();
+  }, [tableId, resId, tokenUrlParam]);
 
   // ── Print Handler ──────────────────────────────────────────
   const handlePrint = async () => {
@@ -94,9 +112,11 @@ function LiveReceipt() {
 
   // ── Listen for active order for this table ──────────────────
   useEffect(() => {
-    if (!tableId || !resId) {
-      setLoading(false);
-      setNotFound(true);
+    if (!tableId || !resId || securityValid !== true) {
+      if (securityValid === true) {
+        setLoading(false);
+        setNotFound(true);
+      }
       return;
     }
 
@@ -119,7 +139,7 @@ function LiveReceipt() {
 
         // Brief delay so customer can see transition
         setTimeout(() => {
-          navigate(`/menu?resId=${resId}&table=${tableId}`, { replace: true });
+          navigate(`/menu?resId=${resId}&table=${tableId}&token=${tokenUrlParam}`, { replace: true });
         }, 2500);
         return;
       }
@@ -131,16 +151,34 @@ function LiveReceipt() {
     });
 
     return () => unsub();
-  }, [tableId, resId, navigate]);
+  }, [tableId, resId, navigate, securityValid]);
 
   // ── Add More Items → unlock session ─────────────────────────
   function handleAddMore() {
     clearStoredSession(tableId);
-    navigate(`/menu?resId=${resId}&table=${tableId}`);
+    navigate(`/menu?resId=${resId}&table=${tableId}&token=${tokenUrlParam}`);
+  }
+
+  // ── Security token guard ──────────────────────────────────────
+  if (securityValid === false) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{ background: "#0f172a" }}
+      >
+        <div className="text-center p-8 rounded-3xl max-w-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+          <ShieldAlert size={48} className="text-red-500 mx-auto mb-4" />
+          <h2 className="text-white text-xl font-bold mb-2">Invalid QR Signature</h2>
+          <p className="text-white/60 text-sm leading-relaxed mb-6">
+            The table identifier does not match the cryptographic signature. Please scan the official QR code printed at your table.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // ── Loading State ─────────────────────────────────────────────
-  if (loading) {
+  if (loading || securityValid === null) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"

@@ -247,32 +247,91 @@ export function generateStaffKOTBytes(order, batch, settings = null) {
   return new Uint8Array(bytes);
 }
 
-// ─── Global Connection Cache ───────────────────────────────────────────────
-let cachedPrinterDevice = null;
-let cachedCharacteristic = null;
+// ─── Global Connection Cache & Queue ───────────────────────────────────────
+export let cachedBillingDevice = null;
+export let cachedBillingCharacteristic = null;
+
+export let cachedKitchenDevice = null;
+export let cachedKitchenCharacteristic = null;
+
+// Event listeners for React UI updates
+const statusListeners = new Set();
+function emitStatusChange() {
+  statusListeners.forEach(listener => listener({
+    billing: cachedBillingDevice?.gatt?.connected || false,
+    kitchen: cachedKitchenDevice?.gatt?.connected || false
+  }));
+}
+export function subscribeToPrinterStatus(callback) {
+  statusListeners.add(callback);
+  callback({
+    billing: cachedBillingDevice?.gatt?.connected || false,
+    kitchen: cachedKitchenDevice?.gatt?.connected || false
+  });
+  return () => statusListeners.delete(callback);
+}
+
+let printQueue = [];
+let isProcessingQueue = false;
+
+async function processNextJob() {
+  if (isProcessingQueue || printQueue.length === 0) return;
+  isProcessingQueue = true;
+  
+  const nextJob = printQueue.shift();
+  const { payload, onConnecting, resolve, reject, isRetry, type } = nextJob;
+  
+  try {
+    const result = await _executeBluetoothPrint(payload, onConnecting, type);
+    if (!result.success && result.error && !isRetry) {
+      // If we failed (e.g. disconnected) but have the payload, maybe retry once after clearing cache?
+      // For simplicity, we just return the error to the caller.
+      reject(new Error(result.error));
+    } else {
+      resolve(result);
+    }
+  } catch (error) {
+    console.error("Queue execution fault:", error);
+    reject(error);
+  }
+  
+  isProcessingQueue = false;
+  // Trigger next job in the queue
+  processNextJob();
+}
 
 // ─── Core Bluetooth Print Function ────────────────────────────────────────
 
-async function executeBluetoothPrint(payload, onConnecting = null) {
+async function _executeBluetoothPrint(payload, onConnecting = null, type = 'billing') {
   if (!navigator.bluetooth) {
     return { success: false, error: 'Web Bluetooth API is not supported in this browser. Please use Chrome or Edge on Android/Desktop.' };
   }
   const CHUNK_SIZE = 20;
 
-  if (cachedPrinterDevice && cachedPrinterDevice.gatt.connected && cachedCharacteristic) {
-    console.log("Reusing existing cached printer connection...");
+  const isBilling = type === 'billing';
+  let cachedDevice = isBilling ? cachedBillingDevice : cachedKitchenDevice;
+  let cachedChar = isBilling ? cachedBillingCharacteristic : cachedKitchenCharacteristic;
+
+  if (cachedDevice && cachedDevice.gatt.connected && cachedChar) {
+    console.log(`Reusing existing cached ${type} printer connection...`);
     if (onConnecting) onConnecting();
     try {
       for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
         const chunk = payload.slice(i, i + CHUNK_SIZE);
-        await cachedCharacteristic.writeValue(chunk);
+        await cachedChar.writeValue(chunk);
         await new Promise(res => setTimeout(res, 10));
       }
       return { success: true };
     } catch (err) {
-      console.warn("Cached connection failed, clearing cache...", err);
-      cachedPrinterDevice = null;
-      cachedCharacteristic = null;
+      console.warn(`Cached ${type} connection failed, clearing cache...`, err);
+      if (isBilling) {
+        cachedBillingDevice = null;
+        cachedBillingCharacteristic = null;
+      } else {
+        cachedKitchenDevice = null;
+        cachedKitchenCharacteristic = null;
+      }
+      emitStatusChange();
     }
   }
 
@@ -337,13 +396,25 @@ async function executeBluetoothPrint(payload, onConnecting = null) {
       throw new Error('No writable print characteristic found on this device.');
     }
 
-    cachedPrinterDevice = device;
-    cachedCharacteristic = writeCharacteristic;
+    if (isBilling) {
+      cachedBillingDevice = device;
+      cachedBillingCharacteristic = writeCharacteristic;
+    } else {
+      cachedKitchenDevice = device;
+      cachedKitchenCharacteristic = writeCharacteristic;
+    }
+    emitStatusChange();
 
     device.addEventListener('gattserverdisconnected', () => {
-      console.log('Printer disconnected, clearing cache.');
-      cachedPrinterDevice = null;
-      cachedCharacteristic = null;
+      console.log(`${type} Printer disconnected, clearing cache.`);
+      if (isBilling) {
+        cachedBillingDevice = null;
+        cachedBillingCharacteristic = null;
+      } else {
+        cachedKitchenDevice = null;
+        cachedKitchenCharacteristic = null;
+      }
+      emitStatusChange();
     });
 
     console.log('%c[Thermal Printer] Generated Binary Payload (bytes):\n', 'color: #3b82f6; font-weight: bold;', payload.length);
@@ -361,12 +432,68 @@ async function executeBluetoothPrint(payload, onConnecting = null) {
   }
 }
 
+async function executeBluetoothPrint(payload, onConnecting = null, type = 'billing') {
+  return new Promise((resolve, reject) => {
+    printQueue.push({ payload, onConnecting, resolve, reject, isRetry: false, type });
+    processNextJob();
+  });
+}
+
 export async function printOrderToken(order, restaurantName = 'FOOD WORLD', onConnecting = null, settings = null) {
+  const hardware = settings?.hardware || {};
+  if (hardware.isCustomerHardwareOn === false) {
+    console.log("Customer receipt printing bypassed via settings.");
+    return { success: true, bypassed: true };
+  }
   const payload = formatOrderReceipt(order, restaurantName, settings);
-  return await executeBluetoothPrint(payload, onConnecting);
+  return await executeBluetoothPrint(payload, onConnecting, 'billing');
 }
 
 export async function printKOTToken(order, batch, settings = null, onConnecting = null) {
+  const hardware = settings?.hardware || {};
+  if (hardware.isKitchenHardwareOn === false) {
+    console.log("Kitchen KOT printing bypassed via settings.");
+    return { success: true, bypassed: true };
+  }
+  const targetType = hardware.hardwareMode === '1_device' ? 'billing' : 'kitchen';
   const payload = generateStaffKOTBytes(order, batch, settings);
-  return await executeBluetoothPrint(payload, onConnecting);
+  return await executeBluetoothPrint(payload, onConnecting, targetType);
+}
+
+// ─── Manual Connection Control ──────────────────────────────────────────────
+
+export async function connectStationPrinter(type = 'billing') {
+  try {
+    // We send an empty payload (or just initialization commands) to pair the device without printing anything meaningful.
+    // Or we just call _executeBluetoothPrint with an empty array if that works?
+    // Let's send a single INIT command to wake up the printer and lock the connection.
+    const initPayload = new Uint8Array([0x1B, 0x40]); 
+    const result = await _executeBluetoothPrint(initPayload, null, type);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function disconnectStationPrinter(type = 'billing') {
+  try {
+    if (type === 'billing' && cachedBillingDevice) {
+      if (cachedBillingDevice.gatt && cachedBillingDevice.gatt.connected) {
+        await cachedBillingDevice.gatt.disconnect();
+      }
+      cachedBillingDevice = null;
+      cachedBillingCharacteristic = null;
+    } else if (type === 'kitchen' && cachedKitchenDevice) {
+      if (cachedKitchenDevice.gatt && cachedKitchenDevice.gatt.connected) {
+        await cachedKitchenDevice.gatt.disconnect();
+      }
+      cachedKitchenDevice = null;
+      cachedKitchenCharacteristic = null;
+    }
+    emitStatusChange();
+    return { success: true };
+  } catch (error) {
+    console.error(`Failed to disconnect ${type} printer:`, error);
+    return { success: false, error: error.message };
+  }
 }

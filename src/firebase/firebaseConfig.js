@@ -69,7 +69,13 @@ try {
     }),
   });
 } catch (error) {
-  console.warn("Firestore persistent cache initialization failed (QuotaExceeded). Falling back to memory cache.", error);
+  if (error.code === 'failed-precondition') {
+    console.warn("Firestore offline persistence failed: Multiple tabs open. Falling back to memory cache to prevent UI crash.", error);
+  } else if (error.code === 'unimplemented') {
+    console.warn("Firestore offline persistence failed: Browser doesn't support indexedDB. Falling back to memory cache.", error);
+  } else {
+    console.warn("Firestore persistent cache initialization failed (QuotaExceeded/Unknown). Falling back to memory cache.", error);
+  }
   dbInstance = initializeFirestore(app, {
     localCache: memoryLocalCache(),
   });

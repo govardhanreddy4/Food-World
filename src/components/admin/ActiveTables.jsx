@@ -69,12 +69,17 @@ function ActiveTables() {
   }, [currentUser?.uid]);
 
   const handlePrint = async (order) => {
+    if (receiptSettings?.hardware?.isCustomerHardwareOn === false) {
+      showToast(`Billing print bypassed via hardware settings.`);
+      return;
+    }
+
     setPrintStatuses(prev => ({ ...prev, [order.id]: { printing: true, success: false, target: '' } }));
     const restaurantName = localStorage.getItem('restaurant_name') || 'FOOD WORLD';
     try {
       const result = await printOrderToken(order, restaurantName, null, receiptSettings);
       
-      if (result.success) {
+      if (result.success && !result.bypassed) {
         setPrintStatuses(prev => ({ ...prev, [order.id]: { printing: false, success: true, target: 'Billing' } }));
         showToast(`💰 Invoice for Table ${order.tableNumber} successfully printed at Billing Desk.`);
         setTimeout(() => {
@@ -82,7 +87,7 @@ function ActiveTables() {
         }, 3000);
       } else {
         setPrintStatuses(prev => { const next = { ...prev }; delete next[order.id]; return next; });
-        if (!result.cancelled) alert(`Print failed: ${result.error}`);
+        if (!result.success && !result.cancelled) alert(`Print failed: ${result.error}`);
       }
     } catch (err) {
       setPrintStatuses(prev => { const next = { ...prev }; delete next[order.id]; return next; });

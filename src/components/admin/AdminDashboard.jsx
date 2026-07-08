@@ -137,6 +137,11 @@ function AdminDashboard() {
 
   // ── Print Handler ─────────────────────────────────────────────
   const handlePrint = async (order) => {
+    if (receiptSettings?.hardware?.isCustomerHardwareOn === false) {
+      showToast(`Billing print bypassed via hardware settings.`);
+      return;
+    }
+
     setPrintStatuses(prev => ({ ...prev, [order.id]: { printing: true, success: false, target: '' } }));
     const restaurantName = localStorage.getItem('restaurant_name') || 'FOOD WORLD';
     try {
@@ -144,7 +149,7 @@ function AdminDashboard() {
         setPrintingOrderId(order.id);
       }, receiptSettings);
       
-      if (result.success) {
+      if (result.success && !result.bypassed) {
         setPrintStatuses(prev => ({ ...prev, [order.id]: { printing: false, success: true, target: 'Billing' } }));
         showToast(`💰 Invoice for Table ${order.tableNumber} successfully printed at Billing Desk.`);
         setTimeout(() => {
@@ -160,7 +165,7 @@ function AdminDashboard() {
           delete next[order.id];
           return next;
         });
-        if (!result.cancelled) {
+        if (!result.success && !result.cancelled) {
           alert(`Print failed: ${result.error}`);
         }
       }
@@ -438,23 +443,28 @@ function AdminDashboard() {
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: true, success: false, target: '' } }));
-            try {
-              const res = await printKOTToken(order, batch, receiptSettings);
-              if (res.success) {
-                setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: false, success: true, target: 'Kitchen' } }));
-                showToast(`📄 Ticket for Table ${order.tableNumber} (Batch ${order.orderBatches.findIndex(b => b.id === batch.id) + 1}) successfully routed to Kitchen Printer.`);
-                setTimeout(() => {
-                  setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
-                }, 3000);
-              } else {
-                setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
-              }
-            } catch (err) {
-              setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
-              console.error(err);
-            }
+            // 1. ALWAYS fire the core database status mutation so the website works normally
             updateBatchStatus(orderId, batch.id, "Preparing");
+
+            // 2. Only attempt Bluetooth streaming if the respective hardware flag is toggled ON
+            if (receiptSettings?.hardware?.isKitchenHardwareOn !== false) {
+              setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: true, success: false, target: '' } }));
+              try {
+                const res = await printKOTToken(order, batch, receiptSettings);
+                if (res.success && !res.bypassed) {
+                  setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: false, success: true, target: 'Kitchen' } }));
+                  showToast(`📄 Ticket for Table ${order.tableNumber} (Batch ${order.orderBatches.findIndex(b => b.id === batch.id) + 1}) successfully routed to Kitchen Printer.`);
+                  setTimeout(() => {
+                    setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+                  }, 3000);
+                } else {
+                  setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+                }
+              } catch (err) {
+                setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+                console.error("Hardware printing bypassed or failed:", err);
+              }
+            }
           }}
           className="!bg-red-600 hover:!bg-red-500 !shadow-red-500/25 !border-red-500"
         >
@@ -782,23 +792,28 @@ function AdminDashboard() {
                                       onClick={async (e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: true, success: false, target: '' } }));
-                                        try {
-                                          const res = await printKOTToken(order, batch, receiptSettings);
-                                          if (res.success) {
-                                            setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: false, success: true, target: 'Kitchen' } }));
-                                            showToast(`📄 Ticket for Table ${order.tableNumber} (Batch ${bIdx + 1}) successfully routed to Kitchen Printer.`);
-                                            setTimeout(() => {
-                                              setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
-                                            }, 3000);
-                                          } else {
-                                            setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
-                                          }
-                                        } catch (err) {
-                                          setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
-                                          console.error(err);
-                                        }
+                                        // 1. ALWAYS fire the core database status mutation
                                         updateBatchStatus(order.id, batch.id, "Preparing");
+
+                                        // 2. Only attempt Bluetooth streaming if hardware flag is ON
+                                        if (receiptSettings?.hardware?.isKitchenHardwareOn !== false) {
+                                          setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: true, success: false, target: '' } }));
+                                          try {
+                                            const res = await printKOTToken(order, batch, receiptSettings);
+                                            if (res.success && !res.bypassed) {
+                                              setPrintStatuses(prev => ({ ...prev, [batch.id]: { printing: false, success: true, target: 'Kitchen' } }));
+                                              showToast(`Ticket for Table ${order.tableNumber} sent to Kitchen.`);
+                                              setTimeout(() => {
+                                                setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+                                              }, 3000);
+                                            } else {
+                                              setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+                                            }
+                                          } catch (err) {
+                                            setPrintStatuses(prev => { const next = { ...prev }; delete next[batch.id]; return next; });
+                                            console.error("Hardware printing failed:", err);
+                                          }
+                                        }
                                       }}
                                       className="w-full px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-lg md:rounded-xl hover:opacity-90 transition-all shadow-md disabled:opacity-70 flex justify-center items-center gap-2"
                                     >
