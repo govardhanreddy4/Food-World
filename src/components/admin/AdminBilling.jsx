@@ -10,6 +10,7 @@ function AdminBilling() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  const [timeFilter, setTimeFilter] = useState('today'); // 'today', 'overall', 'custom'
   // Default to today (YYYY-MM-DD)
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
@@ -49,17 +50,24 @@ function AdminBilling() {
 
   // ── Filter orders by date ──────────────────────────────────
   const filteredOrders = useMemo(() => {
-    if (!selectedDate) return [];
+    let startOfDay, endOfDay;
 
-    // Parse the selected date string (YYYY-MM-DD) in local time
-    const [year, month, day] = selectedDate.split("-").map(Number);
-    const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
-    const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
+    if (timeFilter === 'today') {
+      const today = new Date();
+      startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).getTime();
+      endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
+    } else if (timeFilter === 'custom' && selectedDate) {
+      const [year, month, day] = selectedDate.split("-").map(Number);
+      startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
+      endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
+    }
 
     return orders
       .filter((o) => {
         const isCompleted = o.active === false || (o.status || "").toLowerCase() === "completed/paid";
         if (!isCompleted) return false;
+
+        if (timeFilter === 'overall') return true;
 
         let orderTime = 0;
         if (o.updatedAt?.toMillis) {
@@ -81,7 +89,7 @@ function AdminBilling() {
         const timeB = b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
         return timeB - timeA; // Newest first
       });
-  }, [orders, selectedDate]);
+  }, [orders, timeFilter, selectedDate]);
 
   // ── Summary Metrics ────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -159,8 +167,8 @@ function AdminBilling() {
 
   return (
     <div className="min-h-screen p-6" style={{ background: "#0B0F19" }}>
-      {/* Header & Date Picker */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
+      {/* Header & Filters */}
+      <div className="flex flex-col gap-6 mb-8">
         <PageHeader
           title="Billing History"
           subtitle="Review settled bills and detailed payment ledgers"
@@ -170,12 +178,51 @@ function AdminBilling() {
             </div>
           }
         />
-        <div className="w-full md:w-48">
-          <TextInput
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          />
+
+        {/* Filter Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto">
+            <button
+              onClick={() => setTimeFilter('today')}
+              className={`whitespace-nowrap font-bold text-sm transition-all ${
+                timeFilter === 'today'
+                  ? 'bg-white text-black rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(255,255,255,0.3)]'
+                  : 'bg-gray-900/40 border border-gray-800 text-gray-400 rounded-full px-4 py-1.5 hover:bg-gray-800/60'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => setTimeFilter('overall')}
+              className={`whitespace-nowrap font-bold text-sm transition-all ${
+                timeFilter === 'overall'
+                  ? 'bg-white text-black rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(255,255,255,0.3)]'
+                  : 'bg-gray-900/40 border border-gray-800 text-gray-400 rounded-full px-4 py-1.5 hover:bg-gray-800/60'
+              }`}
+            >
+              Overall
+            </button>
+            <button
+              onClick={() => setTimeFilter('custom')}
+              className={`whitespace-nowrap font-bold text-sm transition-all ${
+                timeFilter === 'custom'
+                  ? 'bg-white text-black rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(255,255,255,0.3)]'
+                  : 'bg-gray-900/40 border border-gray-800 text-gray-400 rounded-full px-4 py-1.5 hover:bg-gray-800/60'
+              }`}
+            >
+              Specific Date
+            </button>
+          </div>
+
+          {timeFilter === 'custom' && (
+            <div className="w-full sm:w-48 animate-in fade-in slide-in-from-top-2 duration-300">
+              <TextInput
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            </div>
+          )}
         </div>
       </div>
 

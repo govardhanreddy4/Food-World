@@ -138,36 +138,64 @@ function AdminSettings() {
       const batch = writeBatch(db);
       
       if (purgeOptions.pendingOrders) {
-        const qPending = query(collection(db, COLLECTIONS.ORDERS), where("status", "in", ["pending", "preparing"]));
+        const qPending = query(
+          collection(db, COLLECTIONS.ORDERS),
+          where("adminEmail", "==", currentUser.email),
+          where("status", "in", ["pending", "preparing"])
+        );
         const snapPending = await getDocs(qPending);
         snapPending.forEach(d => batch.delete(d.ref));
       }
 
       if (purgeOptions.completedOrders) {
-        const qCompleted = query(collection(db, COLLECTIONS.ORDERS), where("status", "in", ["served", "completed"]));
+        const qCompleted = query(
+          collection(db, COLLECTIONS.ORDERS),
+          where("adminEmail", "==", currentUser.email),
+          where("status", "in", ["served", "completed"])
+        );
         const snapCompleted = await getDocs(qCompleted);
         snapCompleted.forEach(d => batch.delete(d.ref));
       }
 
       if (purgeOptions.salesAnalytics) {
-        const snapDaily = await getDocs(collection(db, COLLECTIONS.DAILY_SNAPSHOTS));
+        const qDaily = query(
+          collection(db, COLLECTIONS.DAILY_SNAPSHOTS),
+          where("adminEmail", "==", currentUser.email)
+        );
+        const snapDaily = await getDocs(qDaily);
         snapDaily.forEach(d => batch.delete(d.ref));
         
-        const snapWaiter = await getDocs(collection(db, COLLECTIONS.WAITER_CALLS));
+        const qWaiter = query(
+          collection(db, COLLECTIONS.WAITER_CALLS),
+          where("adminEmail", "==", currentUser.email)
+        );
+        const snapWaiter = await getDocs(qWaiter);
         snapWaiter.forEach(d => batch.delete(d.ref));
       }
 
       if (purgeOptions.activeTables) {
-        const qActive = query(collection(db, COLLECTIONS.ORDERS), where("active", "==", true));
+        const qActive = query(
+          collection(db, COLLECTIONS.ORDERS),
+          where("adminEmail", "==", currentUser.email),
+          where("active", "==", true)
+        );
         const snapActive = await getDocs(qActive);
         snapActive.forEach(d => batch.delete(d.ref));
       }
 
       if (purgeOptions.menuCategories) {
-        const snapMenu = await getDocs(collection(db, COLLECTIONS.MENU_ITEMS));
+        const qMenu = query(
+          collection(db, COLLECTIONS.MENU_ITEMS),
+          where("adminEmail", "==", currentUser.email)
+        );
+        const snapMenu = await getDocs(qMenu);
         snapMenu.forEach(d => batch.delete(d.ref));
 
-        const snapCat = await getDocs(collection(db, COLLECTIONS.CATEGORIES));
+        const qCat = query(
+          collection(db, COLLECTIONS.CATEGORIES),
+          where("adminEmail", "==", currentUser.email)
+        );
+        const snapCat = await getDocs(qCat);
         snapCat.forEach(d => batch.delete(d.ref));
       }
 
